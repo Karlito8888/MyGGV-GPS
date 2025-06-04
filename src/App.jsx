@@ -169,8 +169,8 @@ function WelcomeModal({ isOpen, onRequestClose, onDestinationSet }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-96">
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-96 bg-opacity-90">
         <h2 className="text-xl font-bold mb-4">Bienvenue</h2>
         <p className="mb-4">
           Veuillez entrer les coordonnées de votre destination
@@ -402,8 +402,8 @@ export default function MapCore() {
   }, [locationsSource]);
 
   return (
-    <div className="map-container">
-      <div id="map" className="map" />
+    <div className="map-container relative">
+      <div id="map" className="map absolute inset-0" />
       <button onClick={handleRecenterClick} className="recenter-button">
         <MdCenterFocusStrong />
       </button>
