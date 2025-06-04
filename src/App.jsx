@@ -90,6 +90,8 @@ function App() {
       }),
     });
 
+    fetchLocations(supabase, poiSource);
+
     // Ajout des blocs
     blocks.forEach((block) => {
       const polygon = new Feature({
