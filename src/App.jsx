@@ -20,7 +20,7 @@ function App() {
   const handleDestinationSet = async (block, lot) => {
     try {
       const { data, error } = await supabase
-        .from('location')
+        .from('locations')
         .select('*')
         .eq('block', block)
         .eq('lot', lot)
