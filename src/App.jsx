@@ -402,8 +402,8 @@ export default function MapCore() {
   }, [locationsSource]);
 
   return (
-    <div className="map-container relative">
-      <div id="map" className="map absolute inset-0" />
+    <div className="relative w-full h-screen">
+      <div id="map" className="absolute inset-0 w-full h-full" />
       <button onClick={handleRecenterClick} className="recenter-button">
         <MdCenterFocusStrong />
       </button>
