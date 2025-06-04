@@ -15,6 +15,46 @@ import { MdCenterFocusStrong } from "react-icons/md";
 import { publicPois } from "./data/public-pois";
 import { blocks } from "./data/blocks";
 
+// Style des marqueurs
+const createFeatureStyle = (iconUrl, scale) => {
+  return new Style({
+    image: new Icon({
+      src: iconUrl,
+      scale,
+      anchor: [0.5, 1]
+    })
+  });
+};
+
+// Récupération des locations depuis Supabase
+const fetchLocations = async (supabaseInstance, locationSource) => {
+  const { data, error } = await supabaseInstance.from("locations").select("*");
+
+  if (error) {
+    console.error("Erreur de récupération des locations:", error);
+    return null;
+  }
+
+  if (locationSource) {
+    locationSource.clear();
+    const features = data.map(location => {
+      const coordinates = location.coordinates.coordinates;
+      const feature = new Feature({
+        geometry: new Point(coordinates),
+        block: location.block,
+        lot: location.lot,
+        type: "location",
+        id: location.id,
+        marker_url: location.marker_url || "/markers/default.png"
+      });
+      feature.setStyle(createFeatureStyle(feature.get("marker_url"), 0.5));
+      return feature;
+    });
+    locationSource.addFeatures(features);
+  }
+  return data;
+};
+
 const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
 
 // Fonction pour recentrer la carte
