@@ -47,6 +47,17 @@ body {
   background-color: #e9ecef;
 }
 
+/* Pour la modal */
+.fixed.inset-0.z-50 {
+  background-color: transparent;
+  pointer-events: none;
+}
+
+/* Rétablir les interactions sur le contenu de la modal */
+.fixed.inset-0.z-50 > div {
+  pointer-events: auto;
+}
+
 /* --- Recenter Button --- */
 .recenter-button {
   position: absolute;
