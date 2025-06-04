@@ -3,7 +3,7 @@ import Map from 'ol/Map'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
 import OSM from 'ol/source/OSM'
-import { fromLonLat } from 'ol/proj'
+import { fromLon } from 'ol/proj'
 import WelcomeModal from './components/WelcomeModal'
 import ArrivalModal from './components/ArrivalModal'
 import RouteLayer from './components/RouteLayer'
@@ -11,11 +11,11 @@ import { supabase } from './lib/supabase'
 import useGeolocation from './hooks/useGeolocation'
 
 function App() {
-  const [map, setMap] = useState(null)
+  const [map, setMap] = useState()
   const [destination, setDestination] = useState(null)
   const [showWelcomeModal, setShowWelcomeModal] = useState(true)
   const [showArrivalModal, setShowArrivalModal] = useState(false)
-  const { position: userLocation, error: locationError } = useGeolocation()
+  const { position: userLocation } = useGeolocation()
 
   const handleDestinationSet = async (block, lot) => {
     try {

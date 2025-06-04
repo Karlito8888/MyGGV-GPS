@@ -5,7 +5,6 @@ import tailwindcss from "@tailwindcss/vite"
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
-    include: ['ol'],
-    exclude: ['@types/ol']
+    include: ['ol']
   }
 })
