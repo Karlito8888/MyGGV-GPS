@@ -1,0 +1,51 @@
+ # Fichiers d'environnement
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*
+!.env.example
+
+# Dossiers de dépendances
+node_modules/
+.vite/
+dist/
+build/
+
+# Fichiers de cache
+.cache/
+.temp/
+.tmp/
+
+# Fichiers de logs
+*.log
+logs/
+
+# Fichiers de configuration IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers de système d'exploitation
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Fichiers de tests
+coverage/
+.nyc_output/
+
+# Fichiers de déploiement
+*.tar.gz
+*.zip
+
+# Fichiers de base de données locale
+*.db
+*.sqlite
+.aider*
