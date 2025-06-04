@@ -21,17 +21,29 @@ function App() {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('*')
+        .select('coordinates')
         .eq('block', block)
         .eq('lot', lot)
-        .single()
+        .maybeSingle()
       
-      if (error) throw error
+      if (error) throw error;
       
-      setDestination(data)
-      setShowWelcomeModal(false)
+      if (!data) {
+        throw new Error('Destination non trouvée');
+      }
+      
+      setDestination({
+        block,
+        lot,
+        coordinates: {
+          longitude: data.coordinates.x,
+          latitude: data.coordinates.y
+        }
+      });
+      setShowWelcomeModal(false);
     } catch (err) {
-      console.error('Erreur de chargement de la destination', err)
+      console.error('Erreur de chargement de la destination', err);
+      // Ici vous pourriez ajouter un message à l'utilisateur
     }
   }
 
