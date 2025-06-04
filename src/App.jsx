@@ -15,7 +15,7 @@ function App() {
   const [destination, setDestination] = useState(null)
   const [showWelcomeModal, setShowWelcomeModal] = useState(true)
   const [showArrivalModal, setShowArrivalModal] = useState(false)
-  const { position: userLocation } = useGeolocation()
+  const { position: userLocation } = useGeolocation({ timeout: 30000 })
 
   const handleDestinationSet = async (block, lot) => {
     try {
