@@ -21,29 +21,36 @@ function App() {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('coordinates')
+        .select('*')
         .eq('block', block)
         .eq('lot', lot)
-        .maybeSingle()
-      
+        .maybeSingle();
+
       if (error) throw error;
       
       if (!data) {
         throw new Error('Destination non trouvée');
       }
       
+      // Debug: Afficher la structure des données reçues
+      console.log('Données reçues:', data);
+      console.log('Structure coordinates:', data?.coordinates);
+      
+      // Extraction des coordonnées depuis le GeoJSON
+      const coordinates = data.coordinates.coordinates; // [longitude, latitude]
+      
       setDestination({
         block,
         lot,
         coordinates: {
-          longitude: data.coordinates.x,
-          latitude: data.coordinates.y
+          longitude: coordinates[0],
+          latitude: coordinates[1]
         }
       });
       setShowWelcomeModal(false);
     } catch (err) {
       console.error('Erreur de chargement de la destination', err);
-      // Ici vous pourriez ajouter un message à l'utilisateur
+      // Ajoutez ici un toast ou message d'erreur à l'utilisateur
     }
   }
 
