@@ -1,22 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol/ol.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Navigation Lotissement</title>
-    <style>
-      #root {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        overflow: hidden;
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="A lightweight and real-time GPS navigation PWA built with React, TypeScript, Vite, and Tailwind CSS. Designed to help visitors navigate easily within a private residential area, from their current location to a specific destination (block and lot) retrieved from Supabase. Features include OpenLayers map integration, route tracking, welcome and arrival modals, and live updates using Supabase Realtime.">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://myggv-gps.netlify.app/">
+    <meta property="og:title" content="My GGV | GPS">
+    <meta property="og:description" content="A lightweight and real-time GPS navigation PWA built with React, TypeScript, Vite, and Tailwind CSS. Designed to help visitors navigate easily within a private residential area, from their current location to a specific destination (block and lot) retrieved from Supabase. Features include OpenLayers map integration, route tracking, welcome and arrival modals, and live updates using Supabase Realtime.">
+    <meta property="og:image" content="https://myggv-gps.netlify.app/icons/icon-512x512.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://myggv-gps.netlify.app/">
+    <meta property="twitter:title" content="My GGV | GPS">
+    <meta property="twitter:description" content="A lightweight and real-time GPS navigation PWA built with React, TypeScript, Vite, and Tailwind CSS. Designed to help visitors navigate easily within a private residential area, from their current location to a specific destination (block and lot) retrieved from Supabase. Features include OpenLayers map integration, route tracking, welcome and arrival modals, and live updates using Supabase Realtime.">
+    <meta property="twitter:image" content="https://myggv-gps.netlify.app/icons/icon-512x512.png">
+    
+    <title>My GGV | GPS</title>
+    <!-- icons -->
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="./src/assets/logos/icon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="./src/assets/logos/icon-16x16.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="48x48"
+      href="./src/assets/logos/icon-48x48.png"
+    />
+    <!-- Apple Touch Icon (pour iOS) -->
+    <link rel="apple-touch-icon" href="./src/assets/logos/icon-192x192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Madimi+One&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Suppression de la ligne Plausible -->
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Solution pour le rafraîchissement SPA
+      if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
+        window.history.replaceState({}, '', '/');
+      }
+    </script>
   </body>
 </html>

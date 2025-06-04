@@ -15,8 +15,7 @@
 
 /* --- Global Styles --- */
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 0;
   background-color: #f8f9fa; /* Light, modern background */
@@ -26,36 +25,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Header Styles */
-.header {
-  height: 60px;
-  background-color: #007bff;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-}
-
-/* Footer Styles */
-.footer {
-  height: 60px;
-  background-color: #007bff;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -63,12 +32,12 @@ body {
 /* --- Map Container & Map --- */
 .map {
   position: absolute;
-  top: 60px; /* Account for header */
+  top: 0;
   left: 0;
   right: 0;
-  bottom: 60px; /* Account for footer */
+  bottom: 0;
   width: 100%;
-  height: calc(100vh - 120px); /* Adjust height for header and footer */
+  height: 100%;
   z-index: 0;
   outline: none;
   background-color: #e9ecef;
@@ -88,8 +57,8 @@ body {
 /* --- Recenter Button --- */
 .recenter-button {
   position: absolute;
-  bottom: 85px;
-  left: 25px;
+  bottom: 25px;
+  right: 25px;
   background-color: #ffffff;
   color: #007bff; /* Primary blue */
   border: none;
@@ -181,8 +150,7 @@ body {
   border-radius: 0.375rem;
   font-weight: 500;
   letter-spacing: 0.5px;
-  transition: background-color 0.2s ease, transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
   border: none;
   text-transform: uppercase;
   font-size: 0.875rem;
@@ -196,8 +164,9 @@ body {
 
 .welcome-modal-content .submit-button:active {
   transform: translateY(0);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
+
 
 /* Add this class to the main content div of ArrivalModal */
 /* e.g., <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl arrival-modal-content"> */
@@ -247,8 +216,7 @@ body {
   padding: 0.8rem 1.5rem; /* Adjusted padding */
   border-radius: 0.5rem; /* Tailwind rounded-xl */
   font-weight: 500;
-  transition: background-color 0.2s ease, transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
   border: none;
   text-transform: capitalize;
   font-size: 0.95rem;
@@ -284,28 +252,19 @@ body {
 
 .arrival-modal-content .action-button:active {
   transform: translateY(0);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
+
 
 /* --- Keyframe Animations --- */
 @keyframes fadeInModal {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideInUpModal {
-  from {
-    transform: translateY(40px) scale(0.98);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
+  from { transform: translateY(40px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 /* --- OpenLayers Control Button Styling (Optional) --- */
@@ -331,14 +290,15 @@ body {
 }
 
 .ol-attribution {
-  background: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255,255,255,0.7) !important;
   border-radius: 4px 0 0 0 !important;
   padding: 2px 6px !important;
 }
 .ol-attribution ul {
-  font-size: 0.7rem !important;
-  color: #333 !important;
+    font-size: 0.7rem !important;
+    color: #333 !important;
 }
 .ol-attribution a {
-  color: #007bff !important;
+    color: #007bff !important;
 }
+
