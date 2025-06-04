@@ -22,15 +22,14 @@ const recenterMap = (map, position) => {
 };
 
 function App() {
-  const mapRef = useRef(); // Référence pour l'élément DOM de la carte
-  const mapInstanceRef = useRef(); // Référence pour l'instance de la carte OpenLayers
+  const mapInstanceRef = useRef(); // Unique référence pour la carte
 
   useGeographic();
 
   useEffect(() => {
     // Créer la carte
     const map = new Map({
-      target: mapRef.current,
+      target: 'map',
       layers: [
         new TileLayer({
           source: new OSM(),
@@ -63,7 +62,7 @@ function App() {
   return (
     <div style={{ position: "relative", height: "100vh" }}>
       <header className="header">Header Content</header>
-      <div ref={mapRef} className="map" />
+      <div id="map" className="map" />
       <button onClick={handleRecenterClick} className="recenter-button">
         <MdCenterFocusStrong />
       </button>
