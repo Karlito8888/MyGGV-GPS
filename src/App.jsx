@@ -42,7 +42,7 @@ function App() {
       setDestination({
         block,
         lot,
-        coordinates: {
+        coordinates: { 
           longitude: coordinates[0],
           latitude: coordinates[1]
         }
@@ -64,7 +64,8 @@ function App() {
           })
         ],
         view: new View({
-          center: fromLonLat([0, 0]),
+          projection: 'EPSG:4326',
+          center: [0, 0],
           zoom: 2
         })
       })
@@ -72,7 +73,7 @@ function App() {
     }
 
     if (userLocation && map) {
-      map.getView().setCenter(fromLonLat([userLocation.longitude, userLocation.latitude]))
+      map.getView().setCenter([userLocation.longitude, userLocation.latitude])
       map.getView().setZoom(15)
     }
 
