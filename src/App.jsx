@@ -21,8 +21,8 @@ const createFeatureStyle = (iconUrl, scale) => {
     image: new Icon({
       src: iconUrl,
       scale,
-      anchor: [0.5, 1]
-    })
+      anchor: [0.5, 1],
+    }),
   });
 };
 
@@ -37,7 +37,7 @@ const fetchLocations = async (supabaseInstance, locationSource) => {
 
   if (locationSource) {
     locationSource.clear();
-    const features = data.map(location => {
+    const features = data.map((location) => {
       const coordinates = location.coordinates.coordinates;
       const feature = new Feature({
         geometry: new Point(coordinates),
@@ -45,7 +45,7 @@ const fetchLocations = async (supabaseInstance, locationSource) => {
         lot: location.lot,
         type: "location",
         id: location.id,
-        marker_url: location.marker_url || "/markers/default.png"
+        marker_url: location.marker_url || "/markers/default.png",
       });
       feature.setStyle(createFeatureStyle(feature.get("marker_url"), 0.5));
       return feature;
