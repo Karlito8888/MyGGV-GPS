@@ -14,7 +14,7 @@ const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
 const recenterMap = (map, position) => {
   if (map) {
     map.getView().animate({
-      center: fromLonLat(position),
+      center: position,  // Utilisation directe des coordonnées avec useGeographic
       duration: 500,
       zoom: 16,
     });
@@ -38,6 +38,7 @@ function App() {
       view: new View({
         center: INITIAL_POSITION,
         zoom: 17,
+        projection: 'EPSG:4326'  // Définition explicite de la projection géographique
       }),
     });
 
