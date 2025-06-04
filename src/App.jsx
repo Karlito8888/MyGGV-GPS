@@ -1,12 +1,19 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import "ol/ol.css";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
+import { Vector as VectorLayer } from "ol/layer";
+import { Vector as VectorSource } from "ol/source";
 import OSM from "ol/source/OSM";
 import { useGeographic, fromLonLat } from "ol/proj";
+import { Feature } from "ol";
+import { Point, Polygon } from "ol/geom";
+import { Fill, Stroke, Style, Icon } from "ol/style";
 import { supabase } from "./lib/supabase";
 import { MdCenterFocusStrong } from "react-icons/md";
+import { publicPois } from "./data/public-pois";
+import { blocks } from "./data/blocks";
 
 const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
 
@@ -22,18 +29,19 @@ const recenterMap = (map, position) => {
 };
 
 function App() {
-  const mapInstanceRef = useRef(); // Unique référence pour la carte
+  const mapInstanceRef = useRef();
+  const vectorSource = useMemo(() => new VectorSource(), []);
+  const poiSource = useMemo(() => new VectorSource(), []);
 
   useGeographic();
 
   useEffect(() => {
-    // Créer la carte
     const map = new Map({
       target: 'map',
       layers: [
-        new TileLayer({
-          source: new OSM(),
-        }),
+        new TileLayer({source: new OSM()}),
+        new VectorLayer({source: vectorSource}),
+        new VectorLayer({source: poiSource})
       ],
       view: new View({
         center: INITIAL_POSITION,
@@ -42,16 +50,39 @@ function App() {
       }),
     });
 
-    // Stocker l'instance de la carte dans la référence
+    // Ajout des blocs
+    blocks.forEach(block => {
+      const polygon = new Feature({
+        geometry: new Polygon([block.coords]),
+        name: block.name
+      });
+      polygon.setStyle(new Style({
+        fill: new Fill({color: block.color || '#E0DFDF'}),
+        stroke: new Stroke({color: '#999', width: 1})
+      }));
+      vectorSource.addFeature(polygon);
+    });
+
+    // Ajout des POIs
+    publicPois.forEach(poi => {
+      const point = new Feature({
+        geometry: new Point(poi.coords),
+        name: poi.name
+      });
+      point.setStyle(new Style({
+        image: new Icon({
+          src: poi.icon,
+          scale: 0.8,
+          anchor: [0.5, 1]
+        })
+      }));
+      poiSource.addFeature(point);
+    });
+
     mapInstanceRef.current = map;
 
-    // Nettoyer la carte lors du démontage du composant
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.setTarget(undefined);
-      }
-    };
-  }, []);
+    return () => map.setTarget(undefined);
+  }, [vectorSource, poiSource]);
 
   // Gestion du clic pour recentrer
   const handleRecenterClick = () => {
