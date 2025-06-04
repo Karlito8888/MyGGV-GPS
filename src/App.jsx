@@ -3,7 +3,7 @@ import Map from 'ol/Map'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
 import OSM from 'ol/source/OSM'
-import { fromLon } from 'ol/proj'
+import { fromLonLat } from 'ol/proj'
 import WelcomeModal from './components/WelcomeModal'
 import ArrivalModal from './components/ArrivalModal'
 import RouteLayer from './components/RouteLayer'
@@ -36,11 +36,31 @@ function App() {
   }
 
   useEffect(() => {
-    if (!map) return
-    
-    if (userLocation) {
+    if (!map) {
+      const initialMap = new Map({
+        target: 'map',
+        layers: [
+          new TileLayer({
+            source: new OSM()
+          })
+        ],
+        view: new View({
+          center: fromLonLat([0, 0]),
+          zoom: 2
+        })
+      })
+      setMap(initialMap)
+    }
+
+    if (userLocation && map) {
       map.getView().setCenter(fromLonLat([userLocation.longitude, userLocation.latitude]))
       map.getView().setZoom(15)
+    }
+
+    return () => {
+      if (map) {
+        map.setTarget(undefined)
+      }
     }
   }, [userLocation, map])
 
