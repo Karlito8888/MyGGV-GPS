@@ -12,42 +12,38 @@ function WelcomeModal({ isOpen, onRequestClose, onDestinationSet }) {
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-4">Sélectionnez votre destination</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Bloc:</label>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-96">
+        <h2 className="text-xl font-bold mb-4">Bienvenue</h2>
+        <p className="mb-4">Veuillez entrer les coordonnées de votre destination</p>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block mb-2">Numéro de bloc</label>
             <input
               type="text"
               value={block}
               onChange={(e) => setBlock(e.target.value)}
-              className="mt-1 p-2 border border-gray-300 rounded w-full"
+              className="w-full p-2 border rounded"
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Lot:</label>
+          
+          <div className="mb-4">
+            <label className="block mb-2">Numéro de lot</label>
             <input
               type="text"
               value={lot}
               onChange={(e) => setLot(e.target.value)}
-              className="mt-1 p-2 border border-gray-300 rounded w-full"
+              className="w-full p-2 border rounded"
               required
             />
           </div>
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onRequestClose}
-              className="px-4 py-2 bg-gray-300 rounded"
-            >
-              Annuler
-            </button>
+          
+          <div className="flex justify-end">
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded"
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >
               Valider
             </button>
