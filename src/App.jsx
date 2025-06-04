@@ -1,34 +1,94 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+import Map from 'ol/Map'
+import View from 'ol/View'
+import TileLayer from 'ol/layer/Tile'
+import OSM from 'ol/source/OSM'
+import { fromLonLat } from 'ol/proj'
+import WelcomeModal from './components/WelcomeModal'
+import ArrivalModal from './components/ArrivalModal'
+import RouteLayer from './components/RouteLayer'
+import { supabase } from './lib/supabase'
+import useGeolocation from './hooks/useGeolocation'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [map, setMap] = useState(null)
+  const [destination, setDestination] = useState(null)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true)
+  const [showArrivalModal, setShowArrivalModal] = useState(false)
+  const { position: userLocation, error: locationError } = useGeolocation()
+
+  const handleDestinationSet = async (block, lot) => {
+    try {
+      const { data, error } = await supabase
+        .from('location')
+        .select('*')
+        .eq('block', block)
+        .eq('lot', lot)
+        .single()
+      
+      if (error) throw error
+      
+      setDestination(data)
+      setShowWelcomeModal(false)
+    } catch (err) {
+      console.error('Erreur de chargement de la destination', err)
+    }
+  }
+
+  useEffect(() => {
+    if (!map) return
+    
+    if (userLocation) {
+      map.getView().setCenter(fromLonLat([userLocation.longitude, userLocation.latitude]))
+      map.getView().setZoom(15)
+    }
+  }, [userLocation, map])
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="flex flex-col h-screen">
+      <header className="h-15 bg-blue-600 text-white p-4">
+        <h1 className="text-xl font-bold">Navigation Lotissement</h1>
+      </header>
+      
+      <main className="flex-1 relative">
+        <div id="map" className="w-full h-full">
+          {map && destination && (
+            <RouteLayer 
+              map={map} 
+              start={userLocation} 
+              end={destination.coordinates} 
+              onArrival={() => setShowArrivalModal(true)}
+            />
+          )}
+        </div>
+      </main>
+      
+      <footer className="h-15 bg-gray-800 text-white p-4">
+        <div className="flex justify-between">
+          <span>Position actuelle: {userLocation ? 'Connecté' : 'En attente...'}</span>
+        </div>
+      </footer>
+
+      <WelcomeModal 
+        isOpen={showWelcomeModal} 
+        onRequestClose={() => setShowWelcomeModal(false)}
+        onDestinationSet={handleDestinationSet}
+      />
+
+      {destination && (
+        <ArrivalModal 
+          isOpen={showArrivalModal}
+          destination={destination}
+          onNewDestination={() => {
+            setShowWelcomeModal(true)
+            setShowArrivalModal(false)
+          }}
+          onExit={() => {
+            setShowArrivalModal(false)
+          }}
+        />
+      )}
+    </div>
   )
 }
 
