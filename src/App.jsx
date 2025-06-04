@@ -17,60 +17,82 @@ function App() {
   const [showArrivalModal, setShowArrivalModal] = useState(false)
   const { position: userLocation } = useGeolocation({ timeout: 30000 })
 
-  const handleDestinationSet = async (block, lot) => {
+  const [locations, setLocations] = useState([]);
+
+  const fetchLocations = async () => {
     try {
       const { data, error } = await supabase
         .from('locations')
         .select('*')
-        .eq('block', block)
-        .eq('lot', lot)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      return data.map(location => ({
+        id: location.id,
+        block: location.block,
+        lot: location.lot,
+        coordinates: {
+          longitude: location.coordinates.coordinates[0],
+          latitude: location.coordinates.coordinates[1]
+        }
+      }));
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      return [];
+    }
+  };
+
+  const handleDestinationSet = async (block, lot) => {
+    try {
+      const locationsData = await fetchLocations();
+      setLocations(locationsData);
       
-      if (!data) {
+      const location = locationsData.find(loc => 
+        loc.block === block && loc.lot === lot
+      );
+
+      if (!location) {
         throw new Error('Destination non trouvée');
       }
-      
-      // Debug: Afficher la structure des données reçues
-      console.log('Données reçues:', data);
-      console.log('Structure coordinates:', data?.coordinates);
-      
-      // Extraction des coordonnées depuis le GeoJSON
-      const coordinates = data.coordinates.coordinates; // [longitude, latitude]
       
       setDestination({
         block,
         lot,
         coordinates: { 
-          longitude: coordinates[0],
-          latitude: coordinates[1]
+          longitude: location.coordinates.longitude,
+          latitude: location.coordinates.latitude
         }
       });
       setShowWelcomeModal(false);
     } catch (err) {
       console.error('Erreur de chargement de la destination', err);
-      // Ajoutez ici un toast ou message d'erreur à l'utilisateur
     }
   }
 
   useEffect(() => {
-    if (!map) {
-      const initialMap = new Map({
-        target: 'map',
-        layers: [
-          new TileLayer({
-            source: new OSM()
+    const initMap = () => {
+      if (!map) {
+        const initialMap = new Map({
+          target: 'map',
+          layers: [
+            new TileLayer({
+              source: new OSM()
+            })
+          ],
+          view: new View({
+            center: fromLonLat([
+              userLocation?.longitude || 0,
+              userLocation?.latitude || 0
+            ]),
+            zoom: 15
           })
-        ],
-        view: new View({
-          projection: 'EPSG:4326',
-          center: [0, 0],
-          zoom: 2
-        })
-      })
-      setMap(initialMap)
-    }
+        });
+        setMap(initialMap);
+      }
+    };
+    
+    initMap();
 
     if (userLocation && map) {
       map.getView().setCenter([userLocation.longitude, userLocation.latitude])
