@@ -73,8 +73,12 @@ function App() {
   const vectorSource = useMemo(() => new VectorSource(), []);
   const poiSource = useMemo(() => new VectorSource(), []);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
-  const [destination, setDestination] = useState(null);
+  const [destination, setDestination] = useState({
+    coords: null,
+    data: null
+  });
   const [userPosition, setUserPosition] = useState(null);
+  const destinationSource = useMemo(() => new VectorSource(), []);
 
   useGeographic();
 
@@ -145,7 +149,32 @@ function App() {
       poiSource.addFeature(point);
     });
 
-    mapInstanceRef.current = map;
+    // Ajout de la couche de destination
+    map.addLayer(new VectorLayer({
+      source: destinationSource,
+      style: new Style({
+        image: new Icon({
+          src: '/markers/destination.png',
+          scale: 1,
+          anchor: [0.5, 1]
+        })
+      })
+    }));
+
+    // Activation de la géolocalisation
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserPosition([pos.coords.longitude, pos.coords.latitude]);
+        },
+        (err) => console.error('Geoloc error:', err),
+        { enableHighAccuracy: true }
+      );
+      return () => {
+        map.setTarget(undefined);
+        navigator.geolocation.clearWatch(watchId);
+      };
+    }
 
     return () => map.setTarget(undefined);
   }, [vectorSource, poiSource]);
@@ -217,39 +246,42 @@ function App() {
     console.log('[Destination] Recherche bloc:', block, 'lot:', lot);
 
     try {
-      const { data, error, status, statusText } = await supabase
+      const { data, error } = await supabase
         .from('locations')
-        .select('coordinates, block, lot, id, marker_url')
+        .select('*')
         .eq('block', block)
         .eq('lot', lot)
         .single();
 
-      console.log('[Destination] Réponse Supabase:', {
-        status,
-        statusText, 
-        error,
-        data
-      });
+      console.log('[Destination] Réponse Supabase:', { error, data });
 
-      if (error || !data) {
-        throw error || new Error('Aucune donnée retournée');
-      }
-
-      console.log('[Destination] Coordonnées trouvées:', data.coordinates);
+      if (error || !data) throw error || new Error('Location introuvable');
       
       setDestination({
-        block: data.block,
-        lot: data.lot,
-        coordinates: data.coordinates.coordinates
+        coords: data.coordinates.coordinates,
+        data
       });
       setShowWelcomeModal(false);
       recenterMap(mapInstanceRef.current, data.coordinates.coordinates);
 
     } catch (err) {
-      console.error('[Destination] Erreur complète:', err);
-      alert(`Erreur: ${err.message}\nBloc: ${block}, Lot: ${lot}`);
+      console.error('[Destination] Erreur:', err);
+      alert(`Bloc ${block}, Lot ${lot} introuvable`);
     }
   };
+
+  // Effet pour mettre à jour le marqueur de destination
+  useEffect(() => {
+    if (!destination?.coords || !destinationSource || !mapInstanceRef.current) return;
+
+    destinationSource.clear();
+    const feature = new Feature({
+      geometry: new Point(fromLonLat(destination.coords)),
+      type: 'destination'
+    });
+    destinationSource.addFeature(feature);
+
+  }, [destination, destinationSource]);
 
   return (
     <div style={{ position: "relative", height: "100vh" }}>
