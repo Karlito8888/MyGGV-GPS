@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 import "ol/ol.css";
 import Map from "ol/Map";
 import View from "ol/View";
@@ -72,6 +72,9 @@ function App() {
   const mapInstanceRef = useRef();
   const vectorSource = useMemo(() => new VectorSource(), []);
   const poiSource = useMemo(() => new VectorSource(), []);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+  const [destination, setDestination] = useState(null);
+  const [userPosition, setUserPosition] = useState(null);
 
   useGeographic();
 
@@ -145,6 +148,83 @@ function App() {
     }
   };
 
+  const WelcomeModal = ({ isOpen, onRequestClose, onDestinationSet }) => {
+    const [block, setBlock] = useState("");
+    const [lot, setLot] = useState("");
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      onDestinationSet(block, lot);
+    };
+
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg p-6 w-96">
+          <h2 className="text-xl font-bold mb-4">Bienvenue</h2>
+          <p className="mb-4">
+            Veuillez entrer les coordonnées de votre destination
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block mb-2">Numéro de bloc</label>
+              <input
+                type="text"
+                value={block}
+                onChange={(e) => setBlock(e.target.value)}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block mb-2">Numéro de lot</label>
+              <input
+                type="text"
+                value={lot}
+                onChange={(e) => setLot(e.target.value)}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                Valider
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const handleDestinationSet = async (block, lot) => {
+    const { data } = await supabase
+      .from('locations')
+      .select('coordinates, block, lot')
+      .eq('block', block)
+      .eq('lot', lot)
+      .single();
+
+    if (data) {
+      setDestination({
+        block: data.block,
+        lot: data.lot,
+        coordinates: data.coordinates.coordinates
+      });
+      setShowWelcomeModal(false);
+      recenterMap(mapInstanceRef.current, data.coordinates.coordinates);
+    } else {
+      alert('Aucune location trouvée pour ces coordonnées');
+    }
+  };
+
   return (
     <div style={{ position: "relative", height: "100vh" }}>
       <header className="header">Header Content</header>
@@ -153,6 +233,12 @@ function App() {
         <MdCenterFocusStrong />
       </button>
       <footer className="footer">Footer Content</footer>
+      
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onRequestClose={() => setShowWelcomeModal(false)}
+        onDestinationSet={handleDestinationSet}
+      />
     </div>
   );
 }
