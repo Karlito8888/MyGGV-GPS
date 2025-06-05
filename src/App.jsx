@@ -45,7 +45,7 @@ const fetchLocations = async (supabaseInstance, locationSource) => {
         lot: location.lot,
         type: "location",
         id: location.id,
-        marker_url: location.marker_url || "/markers/default.png",
+        marker_url: location.marker_url || "/default-marker.png",
       });
       feature.setStyle(createFeatureStyle(feature.get("marker_url"), 0.5));
       return feature;
