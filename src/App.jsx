@@ -79,6 +79,15 @@ function App() {
   useGeographic();
 
   useEffect(() => {
+    // Test de connexion Supabase
+    supabase
+      .from('locations')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count, error }) => {
+        console.log('[Supabase] Test de connexion - Nombre de locations:', count);
+        if (error) console.error('[Supabase] Erreur de connexion:', error);
+      });
+
     const map = new Map({
       target: "map",
       layers: [
@@ -205,14 +214,29 @@ function App() {
   };
 
   const handleDestinationSet = async (block, lot) => {
-    const { data } = await supabase
-      .from('locations')
-      .select('coordinates, block, lot')
-      .eq('block', block)
-      .eq('lot', lot)
-      .single();
+    console.log('[Destination] Recherche bloc:', block, 'lot:', lot);
 
-    if (data) {
+    try {
+      const { data, error, status, statusText } = await supabase
+        .from('locations')
+        .select('coordinates, block, lot, id, marker_url')
+        .eq('block', block)
+        .eq('lot', lot)
+        .single();
+
+      console.log('[Destination] Réponse Supabase:', {
+        status,
+        statusText, 
+        error,
+        data
+      });
+
+      if (error || !data) {
+        throw error || new Error('Aucune donnée retournée');
+      }
+
+      console.log('[Destination] Coordonnées trouvées:', data.coordinates);
+      
       setDestination({
         block: data.block,
         lot: data.lot,
@@ -220,8 +244,10 @@ function App() {
       });
       setShowWelcomeModal(false);
       recenterMap(mapInstanceRef.current, data.coordinates.coordinates);
-    } else {
-      alert('Aucune location trouvée pour ces coordonnées');
+
+    } catch (err) {
+      console.error('[Destination] Erreur complète:', err);
+      alert(`Erreur: ${err.message}\nBloc: ${block}, Lot: ${lot}`);
     }
   };
 
