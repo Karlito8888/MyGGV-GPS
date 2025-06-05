@@ -40,7 +40,7 @@ const fetchLocations = async (supabaseInstance, locationSource) => {
     const features = data.map((location) => {
       const coordinates = location.coordinates.coordinates;
       const feature = new Feature({
-        geometry: new Point(coordinates),
+        geometry: new Point(fromLonLat(coordinates)),
         block: location.block,
         lot: location.lot,
         type: "location",
@@ -61,7 +61,7 @@ const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
 const recenterMap = (map, position) => {
   if (map) {
     map.getView().animate({
-      center: position, // Utilisation directe des coordonnées avec useGeographic
+      center: fromLonLat(position),
       duration: 500,
       zoom: 16.5,
     });
