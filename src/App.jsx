@@ -231,8 +231,16 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ considerIp: true })
       });
-      if (!res.ok) throw new Error('Google API error');
-    
+      
+      if (!res.ok) {
+        const error = await res.json();
+        if (error.error?.status === 'PERMISSION_DENIED') {
+          console.warn('Google Geolocation: Permission denied by user');
+          return null;
+        }
+        throw new Error(error.error?.message || 'Google API error');
+      }
+
       const { location, accuracy } = await res.json();
       return {
         coords: {
@@ -240,26 +248,14 @@ function App() {
           latitude: location.lat,
           accuracy
         },
-        timestamp: Date.now(),
         source: 'google'
       };
     } catch (error) {
-      console.error("Google Geolocation error:", error);
+      console.error("Google Geolocation error:", error.message);
       return null;
     }
   };
 
-
-  const checkLocationPermissions = async () => {
-    try {
-      const result = await navigator.permissions?.query({ name: 'geolocation' });
-      if (result?.state === 'denied') {
-        alert("Veuillez activer la géolocalisation dans les paramètres");
-      }
-    } catch (e) {
-      console.log("Permission API not supported");
-    }
-  };
 
   // Mise à jour de la position sur la carte
   const updateUserPosition = (position) => {
