@@ -36,25 +36,34 @@ const USER_POSITION_STYLES = {
   gps: new Style({
     image: new Circle({
       radius: 8,
-      fill: new Fill({ color: "#4285F4" }), // Bleu
-      stroke: new Stroke({ color: "white", width: 2 }),
+      fill: new Fill({ color: "#4285F4" }),
+      stroke: new Stroke({
+        color: "white",
+        width: 2
+      }),
     }),
   }),
   google: new Style({
     image: new Circle({
       radius: 8,
-      fill: new Fill({ color: "#EA4335" }), // Rouge
-      stroke: new Stroke({ color: "white", width: 2 }),
+      fill: new Fill({ color: "#EA4335" }),
+      stroke: new Stroke({
+        color: "white",
+        width: 2
+      }),
     }),
   }),
   accuracy: new Style({
-    fill: new Fill({
-      color: "rgba(66, 133, 244, 0.2)",
-    }),
-    stroke: new Stroke({
-      color: "rgba(66, 133, 244, 0.5)",
-      width: 1,
-    }),
+    image: new Circle({
+      radius: 1,
+      fill: new Fill({
+        color: "rgba(66, 133, 244, 0.2)"
+      }),
+      stroke: new Stroke({
+        color: "rgba(66, 133, 244, 0.5)",
+        width: 1
+      })
+    })
   }),
 };
 
@@ -263,8 +272,16 @@ function App() {
       });
       accuracyFeature.setStyle(
         new Style({
-          geometry: new Circle(position.coords, position.accuracy),
-          ...USER_POSITION_STYLES.accuracy,
+          image: new Circle({
+            radius: position.accuracy,
+            fill: new Fill({
+              color: "rgba(66, 133, 244, 0.2)"
+            }),
+            stroke: new Stroke({
+              color: "rgba(66, 133, 244, 0.5)",
+              width: 1
+            })
+          })
         })
       );
       userPositionSource.addFeature(accuracyFeature);
