@@ -75,7 +75,7 @@ function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [destination, setDestination] = useState({
     coords: null,
-    data: null
+    data: null,
   });
   const [userPosition, setUserPosition] = useState(null);
   const destinationSource = useMemo(() => new VectorSource(), []);
@@ -85,11 +85,14 @@ function App() {
   useEffect(() => {
     // Test de connexion Supabase
     supabase
-      .from('locations')
-      .select('*', { count: 'exact', head: true })
+      .from("locations")
+      .select("*", { count: "exact", head: true })
       .then(({ count, error }) => {
-        console.log('[Supabase] Test de connexion - Nombre de locations:', count);
-        if (error) console.error('[Supabase] Erreur de connexion:', error);
+        console.log(
+          "[Supabase] Test de connexion - Nombre de locations:",
+          count
+        );
+        if (error) console.error("[Supabase] Erreur de connexion:", error);
       });
 
     const map = new Map({
@@ -150,16 +153,18 @@ function App() {
     });
 
     // Ajout de la couche de destination
-    map.addLayer(new VectorLayer({
-      source: destinationSource,
-      style: new Style({
-        image: new Icon({
-          src: '/markers/destination.png',
-          scale: 1,
-          anchor: [0.5, 1]
-        })
+    map.addLayer(
+      new VectorLayer({
+        source: destinationSource,
+        style: new Style({
+          image: new Icon({
+            src: "/default-marker.png",
+            scale: 1,
+            anchor: [0.5, 1],
+          }),
+        }),
       })
-    }));
+    );
 
     // Activation de la géolocalisation
     if (navigator.geolocation) {
@@ -167,7 +172,7 @@ function App() {
         (pos) => {
           setUserPosition([pos.coords.longitude, pos.coords.latitude]);
         },
-        (err) => console.error('Geoloc error:', err),
+        (err) => console.error("Geoloc error:", err),
         { enableHighAccuracy: true }
       );
       return () => {
@@ -243,44 +248,43 @@ function App() {
   };
 
   const handleDestinationSet = async (block, lot) => {
-    console.log('[Destination] Recherche bloc:', block, 'lot:', lot);
+    console.log("[Destination] Recherche bloc:", block, "lot:", lot);
 
     try {
       const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('block', block)
-        .eq('lot', lot)
+        .from("locations")
+        .select("*")
+        .eq("block", block)
+        .eq("lot", lot)
         .single();
 
-      console.log('[Destination] Réponse Supabase:', { error, data });
+      console.log("[Destination] Réponse Supabase:", { error, data });
 
-      if (error || !data) throw error || new Error('Location introuvable');
-      
+      if (error || !data) throw error || new Error("Location introuvable");
+
       setDestination({
         coords: data.coordinates.coordinates,
-        data
+        data,
       });
       setShowWelcomeModal(false);
       recenterMap(mapInstanceRef.current, data.coordinates.coordinates);
-
     } catch (err) {
-      console.error('[Destination] Erreur:', err);
+      console.error("[Destination] Erreur:", err);
       alert(`Bloc ${block}, Lot ${lot} introuvable`);
     }
   };
 
   // Effet pour mettre à jour le marqueur de destination
   useEffect(() => {
-    if (!destination?.coords || !destinationSource || !mapInstanceRef.current) return;
+    if (!destination?.coords || !destinationSource || !mapInstanceRef.current)
+      return;
 
     destinationSource.clear();
     const feature = new Feature({
       geometry: new Point(fromLonLat(destination.coords)),
-      type: 'destination'
+      type: "destination",
     });
     destinationSource.addFeature(feature);
-
   }, [destination, destinationSource]);
 
   return (
@@ -291,7 +295,7 @@ function App() {
         <MdCenterFocusStrong />
       </button>
       <footer className="footer">Footer Content</footer>
-      
+
       <WelcomeModal
         isOpen={showWelcomeModal}
         onRequestClose={() => setShowWelcomeModal(false)}
