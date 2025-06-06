@@ -294,6 +294,16 @@ function App() {
 
   useGeographic();
 
+  // Fonction pour ajouter des logs visibles (définie en premier)
+  const addDebugLog = useCallback((message, data = null) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `${timestamp}: ${message}${
+      data ? ` | ${JSON.stringify(data)}` : ""
+    }`;
+    console.log(logEntry);
+    setDebugLogs((prev) => [...prev.slice(-4), logEntry]); // Garde seulement les 5 derniers logs
+  }, []);
+
   /**
    * Adapte la position native au format de l'app
    * Ajoute des métadonnées utiles et filtre les données
@@ -427,16 +437,6 @@ function App() {
 
   // Simple : utilise debug si la variable est définie à "true"
   const debugMode = import.meta.env.VITE_DEBUG_GEOLOC === "true";
-
-  // Fonction pour ajouter des logs visibles
-  const addDebugLog = useCallback((message, data = null) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = `${timestamp}: ${message}${
-      data ? ` | ${JSON.stringify(data)}` : ""
-    }`;
-    console.log(logEntry);
-    setDebugLogs((prev) => [...prev.slice(-4), logEntry]); // Garde seulement les 5 derniers logs
-  }, []);
 
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
