@@ -165,6 +165,29 @@ function App() {
 
   useGeographic();
 
+  // Nouveau : Filtre Kalman pour lisser les positions
+  class KalmanFilter {
+    constructor(R = 1, Q = 1) {
+      this.R = R;
+      this.Q = Q;
+      this.p = 1;
+      this.x = null;
+    }
+
+    filter(measurement, accuracy = 1) {
+      if (!this.x) {
+        this.x = measurement;
+        return this.x;
+      }
+
+      this.p += this.Q;
+      const K = this.p / (this.p + this.R * accuracy);
+      this.x = this.x + K * (measurement - this.x);
+      this.p = (1 - K) * this.p;
+
+      return this.x;
+    }
+  }
 
   /**
    * Adapte la position native au format de l'app
@@ -248,7 +271,7 @@ function App() {
   };
 
   // Configuration de la géolocalisation continue
-  const setupGeolocation = () => {
+  const setupPreciseGeolocation = () => {
     if (import.meta.env.VITE_DEBUG_GEOLOC) {
       updateUserPosition({ 
         coords: INITIAL_POSITION,
@@ -257,6 +280,76 @@ function App() {
       });
       return () => {};
     }
+
+    const kalmanLng = new KalmanFilter(0.01, 0.1);
+    const kalmanLat = new KalmanFilter(0.01, 0.1);
+    let lastPositions = [];
+    let isHighAccuracy = true;
+
+    const processPosition = (position) => {
+      const filteredLng = kalmanLng.filter(position.coords.longitude, position.coords.accuracy/100);
+      const filteredLat = kalmanLat.filter(position.coords.latitude, position.coords.accuracy/100);
+
+      lastPositions.push({
+        lng: filteredLng,
+        lat: filteredLat,
+        accuracy: position.coords.accuracy
+      });
+      if (lastPositions.length > 3) lastPositions.shift();
+
+      return {
+        lng: lastPositions.reduce((sum, p) => sum + p.lng, 0) / lastPositions.length,
+        lat: lastPositions.reduce((sum, p) => sum + p.lat, 0) / lastPositions.length,
+        accuracy: Math.max(...lastPositions.map(p => p.accuracy)),
+        source: position.source
+      };
+    };
+
+    const watchOptions = {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 5000
+    };
+
+    return navigator.geolocation.watchPosition(
+      (position) => {
+        const processed = processPosition({
+          coords: {
+            longitude: position.coords.longitude,
+            latitude: position.coords.latitude,
+            accuracy: position.coords.accuracy,
+            heading: position.coords.heading,
+            speed: position.coords.speed
+          },
+          source: 'gps'
+        });
+
+        if (position.coords.heading && position.coords.speed) {
+          const dist = position.coords.speed / 3.6 * 2;
+          const headingRad = (position.coords.heading * Math.PI) / 180;
+          processed.lng += Math.sin(headingRad) * dist / 70000;
+          processed.lat += Math.cos(headingRad) * dist / 110000;
+        }
+
+        updateUserPosition({
+          coords: {
+            longitude: processed.lng,
+            latitude: processed.lat,
+            accuracy: processed.accuracy
+          },
+          source: processed.source
+        });
+      },
+      (error) => {
+        console.warn('Erreur de géolocalisation:', error);
+        if (isHighAccuracy) {
+          isHighAccuracy = false;
+          setupPreciseGeolocation();
+        }
+      },
+      watchOptions
+    );
+  };
 
     const positionsCache = [];
     let lastWatchId;
