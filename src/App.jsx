@@ -8,7 +8,7 @@ import { Vector as VectorSource } from "ol/source";
 import OSM from "ol/source/OSM";
 import { useGeographic, fromLonLat } from "ol/proj";
 import { Feature } from "ol";
-import { Point, Polygon } from "ol/geom";
+import { Point, Polygon, LineString } from "ol/geom";
 import { Fill, Stroke, Style, Icon, Text, Circle } from "ol/style";
 import { supabase } from "./lib/supabase";
 import { MdCenterFocusStrong } from "react-icons/md";
@@ -149,6 +149,17 @@ function App() {
   const destinationSource = useMemo(() => new VectorSource(), []);
   const userPositionSource = useMemo(() => new VectorSource(), []);
   const poiSource = useMemo(() => new VectorSource(), []);
+  const routeSource = useMemo(() => new VectorSource(), []);
+  const routeLayer = useMemo(() => new VectorLayer({
+    source: routeSource,
+    style: new Style({
+      stroke: new Stroke({
+        color: '#3b82f6',
+        width: 6,
+      }),
+    }),
+    zIndex: 98,
+  }), []);
   const orientationRef = useRef(null);
   const watchIdRef = useRef(null);
 
@@ -357,6 +368,27 @@ function App() {
     }
   };
 
+  // Mise à jour du tracé de la route
+  const updateRoute = useCallback(() => {
+    if (!userPosition || !destination?.coords || !routeSource) return;
+
+    routeSource.clear();
+    
+    const line = new Feature({
+      geometry: new LineString([
+        [userPosition.longitude, userPosition.latitude],
+        [destination.coords[0], destination.coords[1]]
+      ]),
+      type: 'route'
+    });
+    
+    routeSource.addFeature(line);
+  }, [userPosition, destination, routeSource]);
+
+  useEffect(() => {
+    updateRoute();
+  }, [userPosition, destination, updateRoute]);
+
   useEffect(() => {
     // Initialisation de la carte
     const map = new Map({
@@ -376,6 +408,7 @@ function App() {
           source: destinationSource,
           zIndex: 99,
         }),
+        routeLayer,
       ],
       view: new View({
         center: INITIAL_POSITION,
