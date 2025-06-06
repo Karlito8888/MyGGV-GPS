@@ -133,14 +133,107 @@ body {
   animation: fadeInModal 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.welcome-modal {
+.welcome-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(18, 18, 18, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 1000;
-  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  animation: fadeInModal 0.4s ease-out;
 }
 
-/* Add this class to the main content div of WelcomeModal */
-/* e.g., <div className="bg-white rounded-lg p-6 w-96 welcome-modal-content"> */
-.welcome-modal-content {
+.welcome-modal {
+  width: 90%;
+  max-width: 400px;
+  background-color: var(--color-white);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  transform-origin: center;
+  animation: slideInModal 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.modal-header {
+  padding: 2rem 2rem 1.5rem;
+  background: linear-gradient(135deg, var(--color-green), var(--color-yellow));
+  color: var(--color-white);
+  text-align: center;
+}
+
+.modal-header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.modal-header p {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.modal-form {
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-black);
+  opacity: 0.8;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 2px solid rgba(18, 18, 18, 0.1);
+  border-radius: 10px;
+  font-family: "Madimi One", serif;
+  font-size: 1rem;
+  color: var(--color-black);
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--color-green);
+  box-shadow: 0 0 0 3px rgba(80, 170, 97, 0.2);
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-green);
+  color: var(--color-white);
+  font-family: "Madimi One", serif;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.submit-btn:hover {
+  background: #429c55;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
   box-shadow: 0 12px 38px rgba(0, 0, 0, 0.12), 0 5px 15px rgba(0, 0, 0, 0.08);
   animation: slideInUpModal 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
   border-radius: 0.75rem; /* Tailwind's rounded-lg is 0.5rem, this is a bit more modern */
