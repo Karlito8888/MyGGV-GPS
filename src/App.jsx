@@ -333,8 +333,8 @@ function App() {
       coords: {
         longitude: position.coords.longitude,
         latitude: position.coords.latitude,
-        accuracy: position.coords.accuracy,
       },
+      accuracy: position.coords.accuracy, // Accuracy au niveau racine
       source,
       timestamp: position.timestamp || Date.now(),
     }),
