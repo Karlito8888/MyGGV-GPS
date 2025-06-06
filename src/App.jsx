@@ -155,65 +155,61 @@ function App() {
   useGeographic();
 
 
-  // Géolocalisation précise avec fallback Google
-  const getPreciseLocation = async () => {
-    try {
-      // 1. Essayer d'abord le GPS natif
-      const gpsPosition = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        });
-      });
-
-      const { coords } = gpsPosition;
-
-      // Si précision suffisante, retourner la position GPS
-      if (coords.accuracy <= 10) {
-        return {
-          coords: [coords.longitude, coords.latitude],
-          accuracy: coords.accuracy,
-          source: "gps",
-        };
-      }
-
-      // 2. Fallback vers Google Maps API si disponible
-      if (import.meta.env.REACT_APP_GOOGLE_API_KEY) {
-        try {
-          const response = await fetch(
-            `https://www.googleapis.com/geolocation/v1/geolocate?key=${
-              import.meta.env.REACT_APP_GOOGLE_API_KEY
-            }`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                considerIp: false,
-                wifiAccessPoints: [],
-              }),
+  // Configuration améliorée de la géolocalisation
+  const getMobilePosition = async () => {
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        position => resolve(position),
+        async error => {
+          console.warn("Erreur GPS mobile:", error);
+          const desktopPos = await getDesktopPosition(); 
+          resolve(desktopPos || {
+            coords: {
+              longitude: INITIAL_POSITION[0], 
+              latitude: INITIAL_POSITION[1],
+              accuracy: 1000
             }
-          );
-
-          const { location, accuracy } = await response.json();
-          return {
-            coords: [location.lng, location.lat],
-            accuracy,
-            source: "google",
-          };
-        } catch (googleError) {
-          console.warn("Google Geolocation API failed:", googleError);
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
         }
+      );
+    });
+  };
+
+  const getDesktopPosition = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
       }
 
-      // Retourner la position GPS même si imprécise
-      return {
-        coords: [coords.longitude, coords.latitude],
-        accuracy: coords.accuracy,
-        source: "gps",
-      };
-    } catch (error) {
-      console.error("Geolocation error:", error);
-      return null;
+      navigator.geolocation.getCurrentPosition(
+        position => resolve(position),
+        error => {
+          console.log("Geoloc desktop échouée");
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 120000
+        }
+      );
+    });
+  };
+
+  const checkLocationPermissions = async () => {
+    try {
+      const result = await navigator.permissions?.query({ name: 'geolocation' });
+      if (result?.state === 'denied') {
+        alert("Veuillez activer la géolocalisation dans les paramètres");
+      }
+    } catch (e) {
+      console.log("Permission API not supported");
     }
   };
 
@@ -285,36 +281,50 @@ function App() {
 
   // Configuration de la géolocalisation continue
   const setupGeolocation = async () => {
-    // Position initiale
-    const initialPosition = await getPreciseLocation();
-    if (initialPosition) {
-      updateUserPosition(initialPosition);
-      recenterMap(mapInstanceRef.current, initialPosition.coords);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
+    
+    if (import.meta.env.VITE_DEBUG_GEOLOC) {
+      updateUserPosition({ 
+        coords: INITIAL_POSITION,
+        accuracy: 5,
+        source: "debug"
+      });
+      return;
     }
 
-    // Surveillance continue
+    await checkLocationPermissions();
+    const position = await (isMobile ? getMobilePosition() : getDesktopPosition());
+
+    if (position) {
+      updateUserPosition({
+        coords: [position.coords.longitude, position.coords.latitude],
+        accuracy: position.coords.accuracy,
+        source: isMobile ? "gps" : "network"
+      });
+      recenterMap(mapInstanceRef.current, [position.coords.longitude, position.coords.latitude]);
+    } else {
+      updateUserPosition({
+        coords: INITIAL_POSITION,
+        accuracy: 100,
+        source: "default"
+      });
+    }
+
     if (navigator.geolocation) {
       watchIdRef.current = navigator.geolocation.watchPosition(
-        async (pos) => {
-          const position = {
+        (pos) => {
+          updateUserPosition({
             coords: [pos.coords.longitude, pos.coords.latitude],
             accuracy: pos.coords.accuracy,
-            source: "gps",
-          };
-
-          // Si précision insuffisante, essayer Google
-          if (pos.coords.accuracy > 20) {
-            const googlePos = await getPreciseLocation();
-            if (googlePos && googlePos.source === "google") {
-              updateUserPosition(googlePos);
-              return;
-            }
-          }
-
-          updateUserPosition(position);
+            source: isMobile ? "gps" : "network"
+          });
         },
         (err) => console.error("Geolocation error:", err),
-        { enableHighAccuracy: true, maximumAge: 0 }
+        {
+          enableHighAccuracy: isMobile,
+          maximumAge: isMobile ? 30000 : 120000,
+          timeout: isMobile ? 10000 : 5000
+        }
       );
     }
   };

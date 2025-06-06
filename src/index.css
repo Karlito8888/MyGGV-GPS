@@ -82,7 +82,7 @@ body {
 .recenter-button {
   position: absolute;
   bottom: 85px;
-  left: 25px;
+  right: 25px;
   background-color: #ffffff;
   color: #007bff; /* Primary blue */
   border: none;
