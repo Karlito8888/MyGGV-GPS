@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Madimi+One&display=swap");
 @import "tailwindcss";
 @import "ol/ol.css";
+@plugin "daisyui";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -48,20 +49,6 @@ body {
   z-index: 1000;
 }
 
-/* Media queries pour mobile */
-@media (max-width: 768px) {
-  .recenter-button {
-    width: 64px;
-    height: 64px;
-    bottom: 90px;
-    right: 20px;
-  }
-  
-  .modal-form input {
-    font-size: 1.1rem;
-    padding: 1rem;
-  }
-}
 
 /* Footer Styles */
 .footer {
@@ -78,6 +65,7 @@ body {
   z-index: 1000;
 }
 
+
 /* --- Map Container & Map --- */
 .map {
   position: absolute;
@@ -92,11 +80,22 @@ body {
   background-color: #e9ecef;
 }
 
+/* Pour la modal */
+.fixed.inset-0.z-50 {
+  background-color: transparent;
+  pointer-events: none;
+}
+
+/* Rétablir les interactions sur le contenu de la modal */
+.fixed.inset-0.z-50 > div {
+  pointer-events: auto;
+}
+
 /* --- Recenter Button --- */
 .recenter-button {
   position: absolute;
   bottom: 85px;
-  right: 25px;
+  left: 25px;
   background-color: #ffffff;
   color: #007bff; /* Primary blue */
   border: none;
@@ -128,6 +127,9 @@ body {
 
 /* --- Modal Styles --- */
 /* General modal backdrop animation (Tailwind's .fixed.inset-0.bg-black) */
+.fixed.inset-0.bg-black {
+  animation: fadeInModal 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
 
 .welcome-modal-overlay {
   position: fixed;
@@ -135,11 +137,11 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(18, 18, 18, 0.7);
+  background-color: rgba(18, 18, 18, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
   backdrop-filter: blur(8px);
   animation: fadeInModal 0.4s ease-out;
 }
@@ -160,25 +162,17 @@ body {
   background: linear-gradient(135deg, var(--color-green), var(--color-yellow));
   color: var(--color-white);
   text-align: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .modal-header h2 {
   font-size: 1.5rem;
   margin-bottom: 0.5rem;
   font-weight: bold;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* Ombre noire légère */
-  color: var(--color-white);
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--color-yellow);
 }
 
 .modal-header p {
   font-size: 0.9rem;
   opacity: 0.9;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); /* Ombre plus subtile */
-  color: var(--color-white);
 }
 
 .modal-form {
@@ -196,6 +190,10 @@ body {
   color: var(--color-black);
   opacity: 0.8;
 }
+
+/* .form-group span {
+  font-size: 1rem;
+} */
 
 .form-group input {
   width: 100%;
@@ -237,11 +235,6 @@ body {
 .submit-btn:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.go-bike {
-  display: inline-block;
-  transform: scaleX(-1); /* Effet miroir horizontal */
 }
 
 /* Add this class to the main content div of ArrivalModal */
