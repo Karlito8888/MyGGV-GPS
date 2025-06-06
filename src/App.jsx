@@ -289,6 +289,9 @@ function App() {
   const [distanceToDestination, setDistanceToDestination] = useState(null);
   const [hasArrived, setHasArrived] = useState(false);
 
+  // État pour les logs de debug visibles
+  const [debugLogs, setDebugLogs] = useState([]);
+
   useGeographic();
 
   /**
@@ -397,19 +400,26 @@ function App() {
   // Simple : utilise debug si la variable est définie à "true"
   const debugMode = import.meta.env.VITE_DEBUG_GEOLOC === "true";
 
+  // Fonction pour ajouter des logs visibles
+  const addDebugLog = useCallback((message, data = null) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `${timestamp}: ${message}${
+      data ? ` | ${JSON.stringify(data)}` : ""
+    }`;
+    console.log(logEntry);
+    setDebugLogs((prev) => [...prev.slice(-4), logEntry]); // Garde seulement les 5 derniers logs
+  }, []);
+
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
-    console.log("🔍 Configuration géolocalisation (v2):", {
+    addDebugLog("🔍 Config géoloc", {
       VITE_DEBUG_GEOLOC: import.meta.env.VITE_DEBUG_GEOLOC,
-      isDev: import.meta.env.DEV,
       debugMode,
       hasGeolocation: !!navigator.geolocation,
-      screenWidth: window.innerWidth,
-      timestamp: new Date().toISOString(),
     });
 
     if (debugMode) {
-      console.log("🖥️ Mode debug géolocalisation activé");
+      addDebugLog("🖥️ Mode debug activé");
       updateUserPosition({
         coords: INITIAL_POSITION,
         accuracy: 5,
@@ -418,29 +428,24 @@ function App() {
       return () => {};
     }
 
-    console.log("📱 Mode géolocalisation réelle activé");
+    addDebugLog("📱 Mode géoloc réelle activé");
 
     let lastWatchId;
 
     const startWatching = (highAccuracy) => {
       if (lastWatchId) {
-        console.log("🔄 Arrêt du watch précédent:", lastWatchId);
+        addDebugLog("🔄 Arrêt watch précédent");
         navigator.geolocation.clearWatch(lastWatchId);
       }
 
-      console.log("📍 Démarrage du watch géolocalisation:", {
-        highAccuracy,
-        hasGeolocation: !!navigator.geolocation,
-        permissions: navigator.permissions ? "disponible" : "non disponible",
-      });
+      addDebugLog("📍 Démarrage watch", { highAccuracy });
 
       lastWatchId = navigator.geolocation.watchPosition(
         (position) => {
-          console.log("✅ Position reçue:", {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: new Date(position.timestamp).toLocaleTimeString(),
+          addDebugLog("✅ Position reçue", {
+            lat: position.coords.latitude.toFixed(6),
+            lng: position.coords.longitude.toFixed(6),
+            accuracy: Math.round(position.coords.accuracy),
           });
 
           const adapted = adaptPosition(
@@ -451,25 +456,29 @@ function App() {
 
           // Passage en low power si précision suffisante
           if (highAccuracy && position.coords.accuracy < 15) {
-            console.log("🎯 Précision suffisante, passage en mode économie");
+            addDebugLog("🎯 Passage mode économie");
             isHighAccuracyActiveRef.current = false;
             startWatching(false);
           }
         },
         (error) => {
-          console.error("❌ Erreur géolocalisation:", {
+          const errorTypes = {
+            1: "PERMISSION_DENIED",
+            2: "POSITION_UNAVAILABLE",
+            3: "TIMEOUT",
+          };
+
+          addDebugLog("❌ Erreur géoloc", {
             code: error.code,
+            type: errorTypes[error.code],
             message: error.message,
-            PERMISSION_DENIED: error.code === 1,
-            POSITION_UNAVAILABLE: error.code === 2,
-            TIMEOUT: error.code === 3,
           });
 
           if (highAccuracy) {
-            console.log("🔄 Tentative en mode basse précision");
+            addDebugLog("🔄 Tentative basse précision");
             startWatching(false);
           } else {
-            console.error("💥 Échec total de la géolocalisation");
+            addDebugLog("💥 Échec total géolocalisation");
           }
         },
         {
@@ -711,11 +720,7 @@ function App() {
         )}
       </header>
 
-      <div
-        ref={mapRef}
-        className="map"
-        style={{ width: "100%", height: "100%" }}
-      />
+      <div ref={mapRef} className="map" />
 
       <button
         onClick={useCallback(
@@ -728,38 +733,133 @@ function App() {
         <MdCenterFocusStrong />
       </button>
 
-      {/* Bouton de debug géolocalisation */}
+      {/* Boutons de debug géolocalisation */}
       {!userPosition && (
-        <button
-          onClick={() => {
-            console.log("🔄 Test géolocalisation forcé");
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                console.log("✅ Test réussi:", position);
-                const adapted = adaptPosition(position, "test");
-                updateUserPosition(adapted);
-              },
-              (error) => {
-                console.error("❌ Test échoué:", error);
-                alert(`Erreur géolocalisation: ${error.message}`);
-              },
-              { enableHighAccuracy: true, timeout: 10000 }
-            );
-          }}
+        <div
           style={{
             position: "absolute",
             top: "80px",
             right: "25px",
-            padding: "10px",
-            background: "#ff6b6b",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
             zIndex: 1000,
           }}
         >
-          Test GPS
-        </button>
+          <button
+            onClick={() => {
+              addDebugLog("🔄 Test géoloc forcé");
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  addDebugLog("✅ Test réussi");
+                  const adapted = adaptPosition(position, "test");
+                  updateUserPosition(adapted);
+                },
+                (error) => {
+                  addDebugLog("❌ Test échoué", {
+                    code: error.code,
+                    msg: error.message,
+                  });
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+              );
+            }}
+            style={{
+              display: "block",
+              marginBottom: "10px",
+              padding: "10px",
+              background: "#ff6b6b",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+            }}
+          >
+            Test GPS
+          </button>
+
+          <button
+            onClick={() => {
+              addDebugLog("🔄 Demande permission");
+              if (navigator.permissions) {
+                navigator.permissions
+                  .query({ name: "geolocation" })
+                  .then((result) => {
+                    addDebugLog("📋 Permission status", {
+                      state: result.state,
+                    });
+                    if (result.state === "prompt") {
+                      // Force une demande
+                      navigator.geolocation.getCurrentPosition(
+                        () => {},
+                        () => {}
+                      );
+                    }
+                  });
+              } else {
+                addDebugLog("❌ Permissions API non disponible");
+                // Force une demande directement
+                navigator.geolocation.getCurrentPosition(
+                  () => {},
+                  () => {}
+                );
+              }
+            }}
+            style={{
+              display: "block",
+              padding: "10px",
+              background: "#4CAF50",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+            }}
+          >
+            Force Permission
+          </button>
+        </div>
+      )}
+
+      {/* Affichage des logs de debug */}
+      {debugLogs.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100px",
+            left: "10px",
+            right: "10px",
+            background: "rgba(0,0,0,0.8)",
+            color: "white",
+            padding: "10px",
+            borderRadius: "5px",
+            fontSize: "12px",
+            fontFamily: "monospace",
+            zIndex: 1000,
+            maxHeight: "200px",
+            overflow: "auto",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+            Debug Logs:
+          </div>
+          {debugLogs.map((log, index) => (
+            <div
+              key={index}
+              style={{ marginBottom: "2px", wordBreak: "break-all" }}
+            >
+              {log}
+            </div>
+          ))}
+          <button
+            onClick={() => setDebugLogs([])}
+            style={{
+              marginTop: "5px",
+              padding: "5px 10px",
+              background: "#666",
+              color: "white",
+              border: "none",
+              borderRadius: "3px",
+              fontSize: "10px",
+            }}
+          >
+            Clear Logs
+          </button>
+        </div>
       )}
 
       {/* Interface de navigation */}
