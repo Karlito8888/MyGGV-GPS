@@ -10,101 +10,54 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      // ▶ Configuration de base
+      injectRegister: 'auto',
+      registerType: 'prompt',
+
+      // ▶ Manifeste dynamique
       manifest: {
-        name: "MyGGV-GPS",
-        short_name: "MyGGV-GPS",
-        id: "/",
-        description:
-          "A lightweight and real-time GPS navigation PWA built with React, TypeScript, Vite, and Tailwind CSS. Designed to help visitors navigate easily within a private residential area, from their current location to a specific destination (block and lot) retrieved from Supabase. Features include OpenLayers map integration, route tracking, welcome and arrival modals, and live updates using Supabase Realtime.",
-        start_url: "/",
-        display: "standalone", // Ceci est important pour le mode plein écran
-        background_color: "#ffffff",
-        theme_color: "#50aa61",
-        orientation: "portrait-primary",
-        lang: "en",
+        name: 'MyGGV-GPS',
+        short_name: 'MyGGV',
+        description: 'GPS pour Garden Grove Village',
+        theme_color: '#50AA61',
+        background_color: '#FFFFFF',
+        display: 'standalone',
+        start_url: '/',
         icons: [
           {
-            src: "/icons/icon-72x72.png",
-            sizes: "72x72",
-            type: "image/png",
-            purpose: "any",
+            src: '/icons/icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
-            src: "/icons/icon-96x96.png",
-            sizes: "96x96",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "/icons/icon-144x144.png",
-            sizes: "144x144",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "/icons/icon-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "/icons/icon-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "/icons/icon-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
-        prefer_related_applications: false,
+            src: '/icons/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
       },
-      manifestFilename: "manifest.webmanifest",
-      includeManifestIcons: true,
-      registerType: "prompt",
+
+      // ▶ Stratégies avancées
       workbox: {
-        clientsClaim: true,
-        skipWaiting: true,
-        cleanupOutdatedCaches: true,
-        // cacheId: 'myggv-v1.0.2', // Utilisez votre numéro de version ici
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\.example\.com\/.*/,
-            handler: "NetworkFirst",
+            urlPattern: ({request}) => request.destination === 'image',
+            handler: 'CacheFirst',
             options: {
-              cacheName: "api-cache",
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24,
-              },
-            },
-          },
-          {
-            urlPattern: /\.(?:js|css|html|json|png|jpg|jpeg|svg|woff2)$/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "static-assets",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
-              },
-            },
-          },
-        ],
+              cacheName: 'images',
+              expiration: { maxEntries: 50 }
+            }
+          }
+        ]
       },
-      injectRegister: "auto",
+
+      // ▶ iOS spécifique
+      includeAssets: ['icons/*.png', 'splashscreens/iphone*.png'],
       devOptions: {
-        enabled: true,
-        type: "module",
-        navigateFallback: "index.html",
-      },
-      includeAssets: ["**/*"],
-      strategies: "generateSW",
-      minify: true,
-      mode: "production",
+        enabled: true
+      }
     }),
   ],
   resolve: {
