@@ -390,12 +390,13 @@ function App() {
 
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
-    console.log("🔍 Configuration géolocalisation:", {
+    console.log("🔍 Configuration géolocalisation (v2):", {
       VITE_DEBUG_GEOLOC: import.meta.env.VITE_DEBUG_GEOLOC,
       isDev: import.meta.env.DEV,
       debugMode,
       hasGeolocation: !!navigator.geolocation,
       screenWidth: window.innerWidth,
+      timestamp: new Date().toISOString(),
     });
 
     if (debugMode) {
@@ -662,6 +663,12 @@ function App() {
           <div className="position-info">
             Source: <span data-source={positionSource}>{positionSource}</span> |
             Précision: {positionAccuracy?.toFixed(1)}m
+            {debugMode && (
+              <span style={{ color: "red", fontWeight: "bold" }}>
+                {" "}
+                | DEBUG MODE
+              </span>
+            )}
           </div>
         )}
       </header>
