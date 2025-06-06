@@ -477,6 +477,9 @@ function App() {
         onRequestClose={() => setShowWelcomeModal(false)}
         onDestinationSet={handleDestinationSet}
       />
+      <footer className="footer">
+        © {new Date().getFullYear()} Garden Grove Village
+      </footer>
     </div>
   );
 }
