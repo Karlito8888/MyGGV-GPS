@@ -168,6 +168,62 @@ function App() {
 
 
   // Configuration améliorée de la géolocalisation
+  const getBestPosition = async () => {
+    try {
+      // 1. Priorité à l'API Google
+      const googlePos = await getGooglePosition();
+      if (googlePos) {
+        console.log("Position from Google API");
+        return googlePos;
+      }
+
+      // 2. Fallback: géoloc navigateur
+      const nativePos = await new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve(null);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve({
+            coords: {
+              longitude: position.coords.longitude,
+              latitude: position.coords.latitude,
+              accuracy: position.coords.accuracy
+            },
+            source: 'network'
+          }),
+          () => resolve(null),
+          {
+            enableHighAccuracy: false,
+            timeout: 5000,
+            maximumAge: 120000
+          }
+        );
+      });
+
+      if (nativePos) {
+        console.log("Position from native geolocation");
+        return nativePos;
+      }
+
+      // 3. Fallback extreme
+      console.warn("Using default position");
+      return { 
+        coords: {
+          longitude: INITIAL_POSITION[0],
+          latitude: INITIAL_POSITION[1],
+          accuracy: 1000
+        },
+        source: 'default'
+      };
+
+    } catch (error) {
+      console.error("getBestPosition error:", error);
+      return null;
+    }
+  };
+
   const getGooglePosition = async () => {
     try {
       const res = await fetch(`https://www.googleapis.com/geolocation/v1/geolocate?key=${import.meta.env.VITE_GOOGLE_API_KEY}`, {
@@ -193,60 +249,6 @@ function App() {
     }
   };
 
-  const getMobilePosition = async () => {
-    // First try Google's API
-    const googlePos = await getGooglePosition();
-    if (googlePos) return googlePos;
-
-    // Fallback to native geolocation
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        position => resolve({
-          ...position,
-          source: 'gps'
-        }),
-        async error => {
-          console.warn("Erreur GPS mobile:", error);
-          const desktopPos = await getDesktopPosition() || {
-            coords: {
-              longitude: INITIAL_POSITION[0],
-              latitude: INITIAL_POSITION[1],
-              accuracy: 1000
-            },
-            source: 'default'
-          };
-          resolve(desktopPos);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0
-        }
-      );
-    });
-  };
-
-  const getDesktopPosition = () => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve(null);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        position => resolve(position),
-        error => {
-          console.log("Geoloc desktop échouée");
-          resolve(null);
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 5000,
-          maximumAge: 120000
-        }
-      );
-    });
-  };
 
   const checkLocationPermissions = async () => {
     try {
@@ -497,8 +499,8 @@ function App() {
       <header className="header">
         {positionSource && (
           <div className="position-info">
-            Source: {positionSource} | Précision: {positionAccuracy?.toFixed(1)}
-            m
+            Source: <span data-source={positionSource}>{positionSource}</span> | 
+            Précision: {positionAccuracy?.toFixed(1)}m
           </div>
         )}
       </header>

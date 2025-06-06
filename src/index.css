@@ -34,6 +34,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Styles des sources de position */
+.position-marker[data-source="google"] {
+  background-color: #34a853;
+}
+.position-marker[data-source="network"] {
+  background-color: #fbbc05;
+}
+.position-marker[data-source="default"] {
+  background-color: #ea4335;
+}
+.position-marker[data-source="debug"] {
+  background-color: #4285f4;
+}
+
 /* Header Styles */
 .header {
   height: 60px;
