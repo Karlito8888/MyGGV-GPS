@@ -167,59 +167,53 @@ function App() {
   useGeographic();
 
 
-  // Configuration améliorée de la géolocalisation
+  // Nouvelle version simplifiée de getBestPosition
   const getBestPosition = async () => {
+    // Délai maximum pour obtenir une position (en ms)
+    const GPS_TIMEOUT = 10000; 
+    
     try {
-      // 1. Priorité à l'API Google
-      const googlePos = await getGooglePosition();
-      if (googlePos) {
-        console.log("Position from Google API");
-        return googlePos;
-      }
-
-      // 2. Fallback: géoloc navigateur
-      const nativePos = await new Promise((resolve) => {
-        if (!navigator.geolocation) {
-          resolve(null);
-          return;
-        }
-
+      // Essai GPS haute précise
+      const position = await new Promise((resolve) => {
+        if (!navigator.geolocation) return resolve(null);
+        
         navigator.geolocation.getCurrentPosition(
-          (position) => resolve({
-            coords: {
-              longitude: position.coords.longitude,
-              latitude: position.coords.latitude,
-              accuracy: position.coords.accuracy
-            },
-            source: 'network'
-          }),
+          position => resolve(position),
           () => resolve(null),
           {
-            enableHighAccuracy: false,
-            timeout: 5000,
-            maximumAge: 120000
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: GPS_TIMEOUT
           }
         );
       });
 
-      if (nativePos) {
-        console.log("Position from native geolocation");
-        return nativePos;
+      if (position) {
+        return {
+          coords: {
+            longitude: position.coords.longitude,
+            latitude: position.coords.latitude,
+            accuracy: position.coords.accuracy
+          },
+          source: 'gps',
+          timestamp: position.timestamp
+        };
       }
 
-      // 3. Fallback extreme
-      console.warn("Using default position");
+      // Fallback ultime
+      console.warn("Using fallback position");
       return { 
         coords: {
           longitude: INITIAL_POSITION[0],
           latitude: INITIAL_POSITION[1],
           accuracy: 1000
         },
-        source: 'default'
+        source: 'fallback',
+        timestamp: Date.now()
       };
 
     } catch (error) {
-      console.error("getBestPosition error:", error);
+      console.error("Geolocation error:", error);
       return null;
     }
   };
