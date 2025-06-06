@@ -333,11 +333,11 @@ function App() {
   const updateUserPosition = useCallback(
     (position) => {
       if (!position) {
-        console.warn("⚠️ updateUserPosition appelé avec position null");
+        addDebugLog("⚠️ updateUserPosition: position null");
         return;
       }
 
-      console.log("🗺️ Mise à jour position sur carte:", {
+      addDebugLog("🗺️ Mise à jour position carte", {
         coords: position.coords,
         accuracy: position.accuracy,
         source: position.source,
@@ -347,16 +347,32 @@ function App() {
       setPositionAccuracy(position.accuracy);
       setPositionSource(position.source);
 
+      // Vérification des sources
+      if (!userPositionSource) {
+        addDebugLog("❌ userPositionSource manquant");
+        return;
+      }
+
       // Mise à jour du marqueur de position
       userPositionSource.clear();
+      addDebugLog("🧹 Source cleared");
+
       const pointFeature = new Feature({
         geometry: new Point(position.coords),
         accuracy: position.accuracy,
         source: position.source,
       });
 
+      // Vérification du style
+      const style = USER_POSITION_STYLES[position.source];
+      if (!style) {
+        addDebugLog("❌ Style manquant pour", { source: position.source });
+        return;
+      }
+
       // Application du style selon la source
-      pointFeature.setStyle(USER_POSITION_STYLES[position.source]);
+      pointFeature.setStyle(style);
+      addDebugLog("🎨 Style appliqué", { source: position.source });
 
       // Ajout du cercle de précision
       if (position.accuracy) {
@@ -368,11 +384,23 @@ function App() {
         clonedStyle.getImage().setRadius(position.accuracy);
         accuracyFeature.setStyle(clonedStyle);
         userPositionSource.addFeature(accuracyFeature);
+        addDebugLog("🎯 Cercle précision ajouté");
       }
 
       userPositionSource.addFeature(pointFeature);
+      addDebugLog("📍 Marqueur ajouté à la carte");
+
+      // Vérification finale
+      const featureCount = userPositionSource.getFeatures().length;
+      addDebugLog("✅ Features sur carte", { count: featureCount });
+
+      // Auto-recentrage sur la première position
+      if (mapInstanceRef.current) {
+        addDebugLog("🎯 Recentrage auto sur position");
+        recenterMap(mapInstanceRef.current, position.coords);
+      }
     },
-    [userPositionSource, accuracyStyle]
+    [userPositionSource, accuracyStyle, addDebugLog]
   );
 
   // Surveillance de l'orientation
@@ -784,22 +812,34 @@ function App() {
                     addDebugLog("📋 Permission status", {
                       state: result.state,
                     });
-                    if (result.state === "prompt") {
-                      // Force une demande
-                      navigator.geolocation.getCurrentPosition(
-                        () => {},
-                        () => {}
-                      );
-                    }
                   });
               } else {
                 addDebugLog("❌ Permissions API non disponible");
-                // Force une demande directement
-                navigator.geolocation.getCurrentPosition(
-                  () => {},
-                  () => {}
-                );
               }
+
+              // Force VRAIMENT une demande avec callback complet
+              addDebugLog("🚀 Force demande géoloc...");
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  addDebugLog("🎉 Permission accordée!", {
+                    lat: position.coords.latitude.toFixed(6),
+                    lng: position.coords.longitude.toFixed(6),
+                  });
+                  const adapted = adaptPosition(position, "forced");
+                  updateUserPosition(adapted);
+                },
+                (error) => {
+                  addDebugLog("❌ Permission refusée", {
+                    code: error.code,
+                    message: error.message,
+                  });
+                },
+                {
+                  enableHighAccuracy: false,
+                  timeout: 30000,
+                  maximumAge: 0,
+                }
+              );
             }}
             style={{
               display: "block",
@@ -813,6 +853,42 @@ function App() {
             Force Permission
           </button>
         </div>
+      )}
+
+      {/* Bouton de debug pour position existante */}
+      {userPosition && (
+        <button
+          onClick={() => {
+            addDebugLog("🔍 Debug position actuelle", {
+              userPosition,
+              accuracy: positionAccuracy,
+              source: positionSource,
+            });
+
+            // Vérifier les features sur la carte
+            const features = userPositionSource.getFeatures();
+            addDebugLog("🗺️ Features actuelles", { count: features.length });
+
+            // Force recentrage
+            if (mapInstanceRef.current) {
+              addDebugLog("🎯 Force recentrage");
+              recenterMap(mapInstanceRef.current, userPosition);
+            }
+          }}
+          style={{
+            position: "absolute",
+            top: "80px",
+            left: "25px",
+            padding: "10px",
+            background: "#2196F3",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            zIndex: 1000,
+          }}
+        >
+          Debug Position
+        </button>
       )}
 
       {/* Affichage des logs de debug */}
