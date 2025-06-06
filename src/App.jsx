@@ -32,45 +32,33 @@ const USER_POSITION_STYLES = {
   gps: new Style({
     image: new Circle({
       radius: 8,
-      fill: new Fill({ color: "#4285F4" }), // Bleu Google
+      fill: new Fill({ color: "#34A853" }),
       stroke: new Stroke({
         color: "white",
         width: 2
       }),
     }),
   }),
-  google: new Style({
-    image: new Icon({
-      src: '/icons/google-marker.svg',
-      scale: 0.8,
-      anchor: [0.5, 1]
+  fallback: new Style({
+    image: new Circle({
+      radius: 6,
+      fill: new Fill({ color: "#EA4335" }),
+      stroke: new Stroke({
+        color: "white",
+        width: 2
+      }),
     }),
   }),
-  // Nouveau style pour la précision Google
-  googleAccuracy: new Style({
+  debug: new Style({
     image: new Circle({
-      radius: 1,
-      fill: new Fill({
-        color: "rgba(66, 133, 244, 0.1)"
-      }),
+      radius: 10,
+      fill: new Fill({ color: "#4285F4" }),
       stroke: new Stroke({
-        color: "rgba(66, 133, 244, 0.3)",
-        width: 1
-      })
-    })
-  }),
-  accuracy: new Style({
-    image: new Circle({
-      radius: 1,
-      fill: new Fill({
-        color: "rgba(66, 133, 244, 0.2)"
+        color: "white",
+        width: 3
       }),
-      stroke: new Stroke({
-        color: "rgba(66, 133, 244, 0.5)",
-        width: 1
-      })
-    })
-  }),
+    }),
+  })
 };
 
 const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
