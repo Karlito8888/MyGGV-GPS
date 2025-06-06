@@ -195,7 +195,7 @@ function App() {
     const [block, setBlock] = useState("");
     const [lot, setLot] = useState("");
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
       e.preventDefault();
       onDestinationSet(block, lot);
     };
@@ -203,44 +203,37 @@ function App() {
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-        <div className="bg-white rounded-lg p-6 w-96">
-          <h2 className="text-xl font-bold mb-4">Bienvenue</h2>
-          <p className="mb-4">
-            Veuillez entrer les coordonnées de votre destination
-          </p>
+      <div className="welcome-modal-overlay">
+        <div className="welcome-modal">
+          <div className="modal-header">
+            <h2>Bienvenue</h2>
+            <p>Veuillez entrer les coordonnées de votre destination</p>
+          </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block mb-2">Numéro de bloc</label>
+          <form onSubmit={handleSubmit} className="modal-form">
+            <div className="form-group">
+              <label>Numéro de bloc</label>
               <input
                 type="text"
                 value={block}
                 onChange={(e) => setBlock(e.target.value)}
-                className="w-full p-2 border rounded"
                 required
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block mb-2">Numéro de lot</label>
+            <div className="form-group">
+              <label>Numéro de lot</label>
               <input
                 type="text"
                 value={lot}
                 onChange={(e) => setLot(e.target.value)}
-                className="w-full p-2 border rounded"
                 required
               />
             </div>
 
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                Valider
-              </button>
-            </div>
+            <button type="submit" className="submit-btn">
+              Valider
+            </button>
           </form>
         </div>
       </div>
