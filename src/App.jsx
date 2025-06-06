@@ -439,28 +439,51 @@ function App() {
 
   // Fonction pour démarrer la navigation
   const startNavigation = useCallback(async () => {
-    if (!userPosition || !destination?.coords) return;
+    if (!userPosition || !destination?.coords) {
+      console.error("❌ Impossible de démarrer la navigation:", {
+        userPosition,
+        destination,
+      });
+      return;
+    }
+
+    console.log("🚀 Démarrage de la navigation:", {
+      userPosition,
+      destination: destination.coords,
+    });
 
     try {
       const routeData = await calculateRoute(userPosition, destination.coords);
+      console.log("✅ Route calculée:", routeData);
+
       setRoute(routeData);
       setIsNavigating(true);
 
       // Afficher la route sur la carte
       routeSource.clear();
+      console.log(
+        "🗺️ Création de la géométrie de route avec",
+        routeData.coordinates.length,
+        "points"
+      );
+
       const routeFeature = new Feature({
         geometry: new LineString(routeData.coordinates),
       });
       routeFeature.setStyle(ROUTE_STYLE);
       routeSource.addFeature(routeFeature);
 
+      console.log("✅ Route ajoutée à la carte");
+
       // Ajuster la vue pour montrer la route complète
       const extent = routeFeature.getGeometry().getExtent();
       mapInstanceRef.current
         .getView()
         .fit(extent, { padding: [50, 50, 50, 50] });
+
+      console.log("✅ Vue ajustée pour montrer la route");
     } catch (error) {
-      console.error("Erreur lors du calcul de l'itinéraire:", error);
+      console.error("❌ Erreur lors du calcul de l'itinéraire:", error);
       alert("Impossible de calculer l'itinéraire");
     }
   }, [userPosition, destination, routeSource]);
@@ -655,7 +678,7 @@ function App() {
               className="navigation-button start-navigation"
             >
               <MdNavigation />
-              <span>Start navigation</span>
+              <span>Start</span>
             </button>
           ) : (
             <div className="navigation-info">

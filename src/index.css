@@ -23,6 +23,15 @@
   padding: 0;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height */
+  height: 100svh; /* Small viewport height */
+}
+
 /* --- Global Styles --- */
 body {
   font-family: "Madimi One", serif;
@@ -154,12 +163,13 @@ body {
 /* --- Map Container & Map --- */
 .map {
   position: absolute;
-  top: 60px; /* Account for header */
+  top: 60px;
   left: 0;
   right: 0;
-  bottom: 60px; /* Account for footer */
+  bottom: 60px;
   width: 100%;
-  height: calc(100vh - 120px); /* Adjust height for header and footer */
+  height: calc(100vh - 120px);
+  max-height: 100%;
   z-index: 0;
   outline: none;
   background-color: #e9ecef;
@@ -278,11 +288,12 @@ body {
   font-size: 0.9rem;
   color: var(--color-black);
   opacity: 0.8;
+  background-color: var(--color-white);
 }
 
-/* .form-group span {
-  font-size: 1rem;
-} */
+.form-group span {
+  background-color: var(--color-white);
+}
 
 .form-group input {
   width: 100%;
@@ -291,6 +302,7 @@ body {
   border-radius: 10px;
   font-family: "Madimi One", serif;
   font-size: 1rem;
+  background-color: var(--color-white);
   color: var(--color-black);
   transition: all 0.3s ease;
 }
@@ -298,6 +310,7 @@ body {
 .form-group input:focus {
   outline: none;
   border-color: var(--color-green);
+  background-color: var(--color-white);
   box-shadow: 0 0 0 3px rgba(80, 170, 97, 0.2);
 }
 
