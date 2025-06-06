@@ -152,6 +152,7 @@ function App() {
   const [positionSource, setPositionSource] = useState(null);
   const destinationSource = useMemo(() => new VectorSource(), []);
   const userPositionSource = useMemo(() => new VectorSource(), []);
+  const poiSource = useMemo(() => new VectorSource(), []);
   const orientationRef = useRef(null);
   const watchIdRef = useRef(null);
 
@@ -356,6 +357,7 @@ function App() {
           className: "osm-layer",
         }),
         new VectorLayer({ source: vectorSource }),
+        new VectorLayer({ source: poiSource }),
         new VectorLayer({
           source: userPositionSource,
           zIndex: 100,
