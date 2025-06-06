@@ -14,10 +14,6 @@ import { supabase } from "./lib/supabase";
 import { MdCenterFocusStrong } from "react-icons/md";
 import { publicPois } from "./data/public-pois";
 import { blocks } from "./data/blocks";
-// import { register } from "ol-pwa";
-
-// Enregistrement du Service Worker pour le caching offline
-// register();
 
 // Style des marqueurs
 const createFeatureStyle = (iconUrl, scale, color) => {
