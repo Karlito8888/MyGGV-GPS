@@ -329,8 +329,6 @@ function App() {
 
   // Configuration de la géolocalisation continue
   const setupGeolocation = async () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
-    
     if (import.meta.env.VITE_DEBUG_GEOLOC) {
       updateUserPosition({ 
         coords: INITIAL_POSITION,
@@ -340,41 +338,10 @@ function App() {
       return;
     }
 
-    await checkLocationPermissions();
-    const position = await (isMobile ? getMobilePosition() : getDesktopPosition());
-
+    const position = await getBestPosition();
     if (position) {
-      updateUserPosition({
-        coords: [position.coords.longitude, position.coords.latitude],
-        accuracy: position.coords.accuracy,
-        source: isMobile ? "gps" : "network"
-      });
+      updateUserPosition(position);
       recenterMap(mapInstanceRef.current, [position.coords.longitude, position.coords.latitude]);
-    } else {
-      updateUserPosition({
-        coords: INITIAL_POSITION,
-        accuracy: 100,
-        source: "default"
-      });
-    }
-
-    if (navigator.geolocation) {
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          updateUserPosition({
-            coords: [pos.coords.longitude, pos.coords.latitude],
-            accuracy: pos.coords.accuracy,
-            source: isMobile ? "gps" : "network"
-          });
-        },
-        (err) => console.error("Geolocation error:", err),
-        {
-          enableHighAccuracy: isMobile,
-          maximumAge: isMobile ? 30000 : 120000,
-          timeout: isMobile ? 10000 : 5000
-        }
-      );
-    }
   };
 
   // Gestion de la destination
