@@ -643,88 +643,108 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Initialisation de la carte
-    const map = new Map({
-      target: mapRef.current,
-      layers: [
-        new TileLayer({
-          source: new OSM(),
-          className: "osm-layer",
-        }),
-        new VectorLayer({ source: vectorSource }),
-        new VectorLayer({ source: poiSource }),
-        new VectorLayer({
-          source: userPositionSource,
-          zIndex: 100,
-        }),
-        new VectorLayer({
-          source: destinationSource,
-          zIndex: 99,
-        }),
-        new VectorLayer({
-          source: routeSource,
-          zIndex: 98,
-        }),
-      ],
-      view: new View({
-        center: INITIAL_POSITION,
-        zoom: 16.5,
-      }),
-    });
+    addDebugLog("🗺️ Initialisation carte...");
 
-    mapInstanceRef.current = map;
+    try {
+      // Vérification du conteneur
+      if (!mapRef.current) {
+        addDebugLog("❌ Conteneur carte manquant");
+        return;
+      }
 
-    // Ajout des blocs
-    blocks.forEach((block) => {
-      const polygon = new Feature({
-        geometry: new Polygon([block.coords]),
-        name: block.name,
-      });
-      polygon.setStyle(
-        new Style({
-          fill: new Fill({ color: block.color || "#E0DFDF" }),
-          stroke: new Stroke({ color: "#999", width: 1 }),
-          text: new Text({
-            text: block.name,
-            font: "600 14px Superclarendon, 'Bookman Old Style', serif",
-            fill: new Fill({ color: "#444" }),
-            stroke: new Stroke({ color: "#fff", width: 2 }),
+      addDebugLog("✅ Conteneur carte OK");
+
+      // Initialisation de la carte
+      const map = new Map({
+        target: mapRef.current,
+        layers: [
+          new TileLayer({
+            source: new OSM(),
+            className: "osm-layer",
           }),
-        })
-      );
-      vectorSource.addFeature(polygon);
-    });
-
-    // Ajout des POIs
-    publicPois.forEach((poi) => {
-      const point = new Feature({
-        geometry: new Point(poi.coords),
-        name: poi.name,
-      });
-      point.setStyle(
-        new Style({
-          image: new Icon({
-            src: poi.icon,
-            scale: 0.8,
-            anchor: [0.5, 1],
+          new VectorLayer({ source: vectorSource }),
+          new VectorLayer({ source: poiSource }),
+          new VectorLayer({
+            source: userPositionSource,
+            zIndex: 100,
           }),
-        })
-      );
-      poiSource.addFeature(point);
-    });
+          new VectorLayer({
+            source: destinationSource,
+            zIndex: 99,
+          }),
+          new VectorLayer({
+            source: routeSource,
+            zIndex: 98,
+          }),
+        ],
+        view: new View({
+          center: INITIAL_POSITION,
+          zoom: 16.5,
+        }),
+      });
 
-    // Configuration de la géolocalisation
-    setupDeviceOrientation();
-    setupGeolocation();
+      addDebugLog("✅ Carte créée");
+      mapInstanceRef.current = map;
+
+      // Ajout des blocs
+      blocks.forEach((block) => {
+        const polygon = new Feature({
+          geometry: new Polygon([block.coords]),
+          name: block.name,
+        });
+        polygon.setStyle(
+          new Style({
+            fill: new Fill({ color: block.color || "#E0DFDF" }),
+            stroke: new Stroke({ color: "#999", width: 1 }),
+            text: new Text({
+              text: block.name,
+              font: "600 14px Superclarendon, 'Bookman Old Style', serif",
+              fill: new Fill({ color: "#444" }),
+              stroke: new Stroke({ color: "#fff", width: 2 }),
+            }),
+          })
+        );
+        vectorSource.addFeature(polygon);
+      });
+
+      // Ajout des POIs
+      publicPois.forEach((poi) => {
+        const point = new Feature({
+          geometry: new Point(poi.coords),
+          name: poi.name,
+        });
+        point.setStyle(
+          new Style({
+            image: new Icon({
+              src: poi.icon,
+              scale: 0.8,
+              anchor: [0.5, 1],
+            }),
+          })
+        );
+        poiSource.addFeature(point);
+      });
+
+      // Configuration de la géolocalisation
+      setupDeviceOrientation();
+      setupGeolocation();
+
+      addDebugLog("✅ Carte initialisée avec succès");
+    } catch (error) {
+      addDebugLog("❌ Erreur initialisation carte", { error: error.message });
+      console.error("Erreur carte:", error);
+    }
 
     return () => {
-      map.setTarget(undefined);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setTarget(undefined);
+      }
       if (watchIdRef.current) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
       window.removeEventListener("deviceorientation", handleOrientation);
     };
-  }, []);
+  }, [addDebugLog]);
 
   // Style de destination optimisé
   const destinationStyle = useMemo(
@@ -779,7 +799,15 @@ function App() {
         )}
       </header>
 
-      <div ref={mapRef} className="map" />
+      <div
+        ref={mapRef}
+        className="map"
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "#f0f0f0", // Couleur de fond pour voir si le conteneur existe
+        }}
+      />
 
       <button
         onClick={useCallback(
