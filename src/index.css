@@ -264,6 +264,10 @@ body {
 
 .modal-form {
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  /* justify-content: center;
+  align-items: center; */
 }
 
 .form-group {
@@ -300,11 +304,12 @@ body {
 }
 
 .submit-btn {
-  width: 100%;
+  width: auto;
   padding: 1rem;
+  margin-inline: auto;
   border: none;
   border-radius: 10px;
-  background: var(--color-green);
+  background: linear-gradient(135deg, var(--color-yellow), var(--color-green));
   color: var(--color-white);
   font-family: "Madimi One", serif;
   font-size: 1rem;
@@ -322,6 +327,12 @@ body {
 .submit-btn:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.go-bike {
+  display: inline-block;
+  transform: scaleX(-1); /* Effet miroir horizontal */
+  font-size: 2rem;
 }
 
 /* Add this class to the main content div of ArrivalModal */

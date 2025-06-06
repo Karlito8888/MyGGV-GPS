@@ -8,7 +8,7 @@ import { Vector as VectorSource } from "ol/source";
 import OSM from "ol/source/OSM";
 import { useGeographic, fromLonLat } from "ol/proj";
 import { Feature } from "ol";
-import { Point, Polygon, LineString } from "ol/geom";
+import { Point, Polygon } from "ol/geom";
 import { Fill, Stroke, Style, Icon, Text, Circle } from "ol/style";
 import { supabase } from "./lib/supabase";
 import { MdCenterFocusStrong } from "react-icons/md";
@@ -35,7 +35,7 @@ const USER_POSITION_STYLES = {
       fill: new Fill({ color: "#34A853" }),
       stroke: new Stroke({
         color: "white",
-        width: 2
+        width: 2,
       }),
     }),
   }),
@@ -45,7 +45,7 @@ const USER_POSITION_STYLES = {
       fill: new Fill({ color: "#EA4335" }),
       stroke: new Stroke({
         color: "white",
-        width: 2
+        width: 2,
       }),
     }),
   }),
@@ -55,10 +55,10 @@ const USER_POSITION_STYLES = {
       fill: new Fill({ color: "#4285F4" }),
       stroke: new Stroke({
         color: "white",
-        width: 3
+        width: 3,
       }),
     }),
-  })
+  }),
 };
 
 const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
@@ -128,8 +128,11 @@ const WelcomeModal = ({ isOpen, onRequestClose, onDestinationSet }) => {
           </div>
 
           <button type="submit" className="submit-btn">
-            <span className="thumb-up">👍🏻</span> Let's go !{" "}
-            <span className="go-bike">🛵</span>
+            {/* <span className="thumb-up">👍🏻</span>
+            <span>Let's go !</span> */}
+            <span className="go-bike">
+              🛵💨
+            </span>
           </button>
         </form>
       </div>
@@ -149,45 +152,10 @@ function App() {
   const destinationSource = useMemo(() => new VectorSource(), []);
   const userPositionSource = useMemo(() => new VectorSource(), []);
   const poiSource = useMemo(() => new VectorSource(), []);
-  const routeSource = useMemo(() => new VectorSource(), []);
-  const routeLayer = useMemo(() => new VectorLayer({
-    source: routeSource,
-    style: new Style({
-      stroke: new Stroke({
-        color: '#3b82f6',
-        width: 6,
-      }),
-    }),
-    zIndex: 98,
-  }), []);
   const orientationRef = useRef(null);
   const watchIdRef = useRef(null);
 
   useGeographic();
-
-  // Nouveau : Filtre Kalman pour lisser les positions
-  class KalmanFilter {
-    constructor(R = 1, Q = 1) {
-      this.R = R;
-      this.Q = Q;
-      this.p = 1;
-      this.x = null;
-    }
-
-    filter(measurement, accuracy = 1) {
-      if (!this.x) {
-        this.x = measurement;
-        return this.x;
-      }
-
-      this.p += this.Q;
-      const K = this.p / (this.p + this.R * accuracy);
-      this.x = this.x + K * (measurement - this.x);
-      this.p = (1 - K) * this.p;
-
-      return this.x;
-    }
-  }
 
   /**
    * Adapte la position native au format de l'app
@@ -197,15 +165,14 @@ function App() {
     coords: {
       longitude: position.coords.longitude,
       latitude: position.coords.latitude,
-      accuracy: position.coords.accuracy
+      accuracy: position.coords.accuracy,
     },
     source,
-    timestamp: position.timestamp || Date.now()
+    timestamp: position.timestamp || Date.now(),
   });
 
-  // Mise à jour de la position avec cache et prédiction
+  // Mise à jour de la position sur la carte
   const updateUserPosition = (position) => {
-    if (!position?.coords) return;
     if (!position) return;
 
     setUserPosition(position.coords);
@@ -233,13 +200,13 @@ function App() {
           image: new Circle({
             radius: position.accuracy,
             fill: new Fill({
-              color: "rgba(66, 133, 244, 0.2)"
+              color: "rgba(66, 133, 244, 0.2)",
             }),
             stroke: new Stroke({
               color: "rgba(66, 133, 244, 0.5)",
-              width: 1
-            })
-          })
+              width: 1,
+            }),
+          }),
         })
       );
       userPositionSource.addFeature(accuracyFeature);
@@ -271,159 +238,44 @@ function App() {
   };
 
   // Configuration de la géolocalisation continue
-  const setupPreciseGeolocation = () => {
+  const setupGeolocation = () => {
     if (import.meta.env.VITE_DEBUG_GEOLOC) {
-      updateUserPosition({ 
+      updateUserPosition({
         coords: INITIAL_POSITION,
         accuracy: 5,
-        source: "debug"
+        source: "debug",
       });
       return () => {};
     }
 
-    const kalmanLng = new KalmanFilter(0.01, 0.1);
-    const kalmanLat = new KalmanFilter(0.01, 0.1);
-    let lastPositions = [];
-    let isHighAccuracy = true;
-
-    const processPosition = (position) => {
-      const filteredLng = kalmanLng.filter(position.coords.longitude, position.coords.accuracy/100);
-      const filteredLat = kalmanLat.filter(position.coords.latitude, position.coords.accuracy/100);
-
-      lastPositions.push({
-        lng: filteredLng,
-        lat: filteredLat,
-        accuracy: position.coords.accuracy
-      });
-      if (lastPositions.length > 3) lastPositions.shift();
-
-      return {
-        lng: lastPositions.reduce((sum, p) => sum + p.lng, 0) / lastPositions.length,
-        lat: lastPositions.reduce((sum, p) => sum + p.lat, 0) / lastPositions.length,
-        accuracy: Math.max(...lastPositions.map(p => p.accuracy)),
-        source: position.source
-      };
-    };
-
-    const watchOptions = {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 5000
-    };
-
-    return navigator.geolocation.watchPosition(
-      (position) => {
-        const processed = processPosition({
-          coords: {
-            longitude: position.coords.longitude,
-            latitude: position.coords.latitude,
-            accuracy: position.coords.accuracy,
-            heading: position.coords.heading,
-            speed: position.coords.speed
-          },
-          source: 'gps'
-        });
-
-        if (position.coords.heading && position.coords.speed) {
-          const dist = position.coords.speed / 3.6 * 2;
-          const headingRad = (position.coords.heading * Math.PI) / 180;
-          processed.lng += Math.sin(headingRad) * dist / 70000;
-          processed.lat += Math.cos(headingRad) * dist / 110000;
-        }
-
-        updateUserPosition({
-          coords: {
-            longitude: processed.lng,
-            latitude: processed.lat,
-            accuracy: processed.accuracy
-          },
-          source: processed.source
-        });
-      },
-      (error) => {
-        console.warn('Erreur de géolocalisation:', error);
-        if (isHighAccuracy) {
-          isHighAccuracy = false;
-          setupPreciseGeolocation();
-        }
-      },
-      watchOptions
-    );
-  };
-
-    const positionsCache = [];
     let lastWatchId;
-
-    const averagePositions = (positions) => {
-      if (positions.length === 0) return null;
-      if (positions.length === 1) return positions[0];
-      
-      // Moyenne pondérée avec plus de poids sur les positions récentes
-      const weights = positions.map((_, i) => (i + 1) / positions.length);
-      const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-      
-      const avgLng = positions.reduce(
-        (sum, pos, i) => sum + pos.coords.longitude * weights[i], 0
-      ) / totalWeight;
-      
-      const avgLat = positions.reduce(
-        (sum, pos, i) => sum + pos.coords.latitude * weights[i], 0
-      ) / totalWeight;
-      
-      return {
-        coords: {
-          longitude: avgLng,
-          latitude: avgLat,
-          accuracy: Math.max(...positions.map(p => p.coords.accuracy))
-        },
-        source: positions[0].source,
-        timestamp: Date.now()
-      };
-    };
 
     const startWatching = (highAccuracy) => {
       if (lastWatchId) navigator.geolocation.clearWatch(lastWatchId);
 
-      const watchOptions = highAccuracy 
-        ? { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 } 
-        : { enableHighAccuracy: false, maximumAge: 60000, timeout: 5000 };
-
       lastWatchId = navigator.geolocation.watchPosition(
-        position => {
-          const adapted = adaptPosition(position, highAccuracy ? 'gps' : 'network');
-          
-          // Mise en cache et lissage
-          positionsCache.push(adapted);
-          if (positionsCache.length > 5) positionsCache.shift();
-          const smoothedPos = averagePositions(positionsCache);
+        (position) => {
+          const adapted = adaptPosition(
+            position,
+            highAccuracy ? "gps" : "network"
+          );
+          updateUserPosition(adapted);
 
-          // Prédiction si orientation disponible
-          let finalPosition = smoothedPos || adapted;
-          if (orientationRef.current && smoothedPos) {
-            const headingRad = (orientationRef.current * Math.PI) / 180;
-            const predLng = smoothedPos.coords.longitude + Math.cos(headingRad) * 0.0001;
-            const predLat = smoothedPos.coords.latitude + Math.sin(headingRad) * 0.0001;
-            finalPosition = {
-              ...smoothedPos,
-              coords: {
-                ...smoothedPos.coords,
-                longitude: predLng,
-                latitude: predLat
-              }
-            };
-          }
-
-          updateUserPosition(finalPosition);
-          
-          if (highAccuracy && smoothedPos?.coords?.accuracy < 15) {
-            startWatching(false); // Bascule en mode économie
+          // Passage en low power si précision suffisante
+          if (highAccuracy && position.coords.accuracy < 15) {
+            isHighAccuracyActive = false;
+            startWatching(false);
           }
         },
-        error => {
+        (error) => {
           console.error("Watch error:", error);
           if (highAccuracy) startWatching(false);
         },
-        watchOptions
+        {
+          enableHighAccuracy: highAccuracy,
+          maximumAge: highAccuracy ? 0 : 60000,
+          timeout: highAccuracy ? 10000 : 5000,
+        }
       );
 
       isHighAccuracyActive = highAccuracy;
@@ -461,27 +313,6 @@ function App() {
     }
   };
 
-  // Mise à jour du tracé de la route
-  const updateRoute = useCallback(() => {
-    if (!userPosition || !destination?.coords || !routeSource) return;
-
-    routeSource.clear();
-    
-    const line = new Feature({
-      geometry: new LineString([
-        [userPosition.longitude, userPosition.latitude],
-        [destination.coords[0], destination.coords[1]]
-      ]),
-      type: 'route'
-    });
-    
-    routeSource.addFeature(line);
-  }, [userPosition, destination, routeSource]);
-
-  useEffect(() => {
-    updateRoute();
-  }, [userPosition, destination, updateRoute]);
-
   useEffect(() => {
     // Initialisation de la carte
     const map = new Map({
@@ -501,7 +332,6 @@ function App() {
           source: destinationSource,
           zIndex: 99,
         }),
-        routeLayer,
       ],
       view: new View({
         center: INITIAL_POSITION,
@@ -581,7 +411,7 @@ function App() {
       <header className="header">
         {positionSource && (
           <div className="position-info">
-            Source: <span data-source={positionSource}>{positionSource}</span> | 
+            Source: <span data-source={positionSource}>{positionSource}</span> |
             Précision: {positionAccuracy?.toFixed(1)}m
           </div>
         )}
