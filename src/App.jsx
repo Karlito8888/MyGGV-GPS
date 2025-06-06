@@ -145,7 +145,6 @@ function App() {
   const mapRef = useRef();
   const mapInstanceRef = useRef();
   const vectorSource = useMemo(() => new VectorSource(), []);
-  const poiSource = useMemo(() => new VectorSource(), []);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [destination, setDestination] = useState({ coords: null, data: null });
   const [userPosition, setUserPosition] = useState(null);
@@ -158,31 +157,6 @@ function App() {
 
   useGeographic();
 
-  // Récupération des locations depuis Supabase
-  const fetchLocations = async () => {
-    const { data, error } = await supabase.from("locations").select("*");
-
-    if (error) {
-      console.error("Erreur de récupération des locations:", error);
-      return;
-    }
-
-    poiSource.clear();
-    const features = data.map((location) => {
-      const coordinates = location.coordinates.coordinates;
-      const feature = new Feature({
-        geometry: new Point(coordinates),
-        block: location.block,
-        lot: location.lot,
-        type: "location",
-        id: location.id,
-        marker_url: location.marker_url || "/default-marker.png",
-      });
-      feature.setStyle(createFeatureStyle(feature.get("marker_url"), 0.5));
-      return feature;
-    });
-    poiSource.addFeatures(features);
-  };
 
   // Géolocalisation précise avec fallback Google
   const getPreciseLocation = async () => {
@@ -382,7 +356,6 @@ function App() {
           className: "osm-layer",
         }),
         new VectorLayer({ source: vectorSource }),
-        new VectorLayer({ source: poiSource }),
         new VectorLayer({
           source: userPositionSource,
           zIndex: 100,
@@ -399,9 +372,6 @@ function App() {
     });
 
     mapInstanceRef.current = map;
-
-    // Chargement des données
-    fetchLocations();
 
     // Ajout des blocs
     blocks.forEach((block) => {
