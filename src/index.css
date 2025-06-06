@@ -49,6 +49,21 @@ body {
   z-index: 1000;
 }
 
+/* Media queries pour mobile */
+@media (max-width: 768px) {
+  .recenter-button {
+    width: 64px;
+    height: 64px;
+    bottom: 90px;
+    right: 20px;
+  }
+  
+  .modal-form input {
+    font-size: 1.1rem;
+    padding: 1rem;
+  }
+}
+
 /* Footer Styles */
 .footer {
   height: 60px;
