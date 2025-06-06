@@ -32,7 +32,7 @@ const USER_POSITION_STYLES = {
   gps: new Style({
     image: new Circle({
       radius: 8,
-      fill: new Fill({ color: "#4285F4" }),
+      fill: new Fill({ color: "#4285F4" }), // Bleu Google
       stroke: new Stroke({
         color: "white",
         width: 2
@@ -40,14 +40,24 @@ const USER_POSITION_STYLES = {
     }),
   }),
   google: new Style({
-    image: new Circle({
-      radius: 8,
-      fill: new Fill({ color: "#EA4335" }),
-      stroke: new Stroke({
-        color: "white",
-        width: 2
-      }),
+    image: new Icon({
+      src: '/icons/google-marker.svg',
+      scale: 0.8,
+      anchor: [0.5, 1]
     }),
+  }),
+  // Nouveau style pour la précision Google
+  googleAccuracy: new Style({
+    image: new Circle({
+      radius: 1,
+      fill: new Fill({
+        color: "rgba(66, 133, 244, 0.1)"
+      }),
+      stroke: new Stroke({
+        color: "rgba(66, 133, 244, 0.3)",
+        width: 1
+      })
+    })
   }),
   accuracy: new Style({
     image: new Circle({
@@ -158,20 +168,54 @@ function App() {
 
 
   // Configuration améliorée de la géolocalisation
+  const getGooglePosition = async () => {
+    try {
+      const res = await fetch(`https://www.googleapis.com/geolocation/v1/geolocate?key=${import.meta.env.VITE_GOOGLE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ considerIp: true })
+      });
+      if (!res.ok) throw new Error('Google API error');
+    
+      const { location, accuracy } = await res.json();
+      return {
+        coords: {
+          longitude: location.lng,
+          latitude: location.lat,
+          accuracy
+        },
+        timestamp: Date.now(),
+        source: 'google'
+      };
+    } catch (error) {
+      console.error("Google Geolocation error:", error);
+      return null;
+    }
+  };
+
   const getMobilePosition = async () => {
+    // First try Google's API
+    const googlePos = await getGooglePosition();
+    if (googlePos) return googlePos;
+
+    // Fallback to native geolocation
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
-        position => resolve(position),
+        position => resolve({
+          ...position,
+          source: 'gps'
+        }),
         async error => {
           console.warn("Erreur GPS mobile:", error);
-          const desktopPos = await getDesktopPosition(); 
-          resolve(desktopPos || {
+          const desktopPos = await getDesktopPosition() || {
             coords: {
-              longitude: INITIAL_POSITION[0], 
+              longitude: INITIAL_POSITION[0],
               latitude: INITIAL_POSITION[1],
               accuracy: 1000
-            }
-          });
+            },
+            source: 'default'
+          };
+          resolve(desktopPos);
         },
         {
           enableHighAccuracy: true,
