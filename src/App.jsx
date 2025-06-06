@@ -342,6 +342,7 @@ function App() {
     if (position) {
       updateUserPosition(position);
       recenterMap(mapInstanceRef.current, [position.coords.longitude, position.coords.latitude]);
+    }
   };
 
   // Gestion de la destination
