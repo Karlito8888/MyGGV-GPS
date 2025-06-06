@@ -14,12 +14,13 @@ import { Vector as VectorSource } from "ol/source";
 import OSM from "ol/source/OSM";
 import { useGeographic } from "ol/proj";
 import { Feature } from "ol";
-import { Point, Polygon } from "ol/geom";
+import { Point, Polygon, LineString } from "ol/geom";
 import { Fill, Stroke, Style, Icon, Text, Circle } from "ol/style";
 import { supabase } from "./lib/supabase";
-import { MdCenterFocusStrong } from "react-icons/md";
+import { MdCenterFocusStrong, MdNavigation, MdStop } from "react-icons/md";
 import { publicPois } from "./data/public-pois";
 import { blocks } from "./data/blocks";
+import * as turf from "@turf/turf";
 
 // Style des marqueurs
 const createFeatureStyle = (iconUrl, scale, color) => {
@@ -80,6 +81,126 @@ const recenterMap = (map, position, zoom = 16.5) => {
   }
 };
 
+// Fonction pour calculer la distance entre deux points
+const calculateDistance = (point1, point2) => {
+  const from = turf.point([point1[0], point1[1]]);
+  const to = turf.point([point2[0], point2[1]]);
+  return turf.distance(from, to, { units: "meters" });
+};
+
+// Fonction pour calculer l'itinéraire avec OpenRouteService
+const calculateRoute = async (start, end) => {
+  // Commençons directement avec OSRM qui est plus fiable et gratuit
+  try {
+    console.log("🗺️ Calcul d'itinéraire de", start, "vers", end);
+
+    // OSRM (gratuit, pas de clé API nécessaire)
+    const osrmUrl = `https://router.project-osrm.org/route/v1/walking/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=true`;
+
+    console.log("📡 Appel OSRM:", osrmUrl);
+
+    const osrmResponse = await fetch(osrmUrl);
+
+    if (!osrmResponse.ok) {
+      throw new Error(`Erreur OSRM: ${osrmResponse.status}`);
+    }
+
+    const osrmData = await osrmResponse.json();
+    console.log("📊 Réponse OSRM:", osrmData);
+
+    if (!osrmData.routes || osrmData.routes.length === 0) {
+      throw new Error("Aucun itinéraire OSRM trouvé");
+    }
+
+    const route = osrmData.routes[0];
+
+    return {
+      coordinates: route.geometry.coordinates,
+      distance: route.distance, // en mètres
+      duration: route.duration, // en secondes
+      steps: route.legs[0]?.steps || [],
+      provider: "osrm",
+    };
+  } catch (osrmError) {
+    console.warn("Erreur avec OSRM, essai avec OpenRouteService:", osrmError);
+
+    // Fallback vers OpenRouteService seulement si OSRM échoue
+    try {
+      const ORS_API_KEY = import.meta.env.VITE_OPENROUTE_API_KEY;
+
+      if (!ORS_API_KEY || ORS_API_KEY.includes("your_api_key_here")) {
+        throw new Error("Clé API OpenRouteService non configurée");
+      }
+
+      const url = `https://api.openrouteservice.org/v2/directions/foot-walking`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ORS_API_KEY}`,
+        },
+        body: JSON.stringify({
+          coordinates: [start, end],
+          format: "geojson",
+          options: {
+            avoid_features: ["highways"],
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Erreur API OpenRouteService: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.features || data.features.length === 0) {
+        throw new Error("Aucun itinéraire trouvé");
+      }
+
+      const route = data.features[0];
+      const coordinates = route.geometry.coordinates;
+      const properties = route.properties;
+
+      return {
+        coordinates: coordinates,
+        distance: properties.segments[0].distance,
+        duration: properties.segments[0].duration,
+        steps: properties.segments[0].steps || [],
+        provider: "openroute",
+      };
+    } catch (orsError) {
+      console.warn(
+        "Erreur avec OpenRouteService aussi, fallback vers ligne droite:",
+        orsError
+      );
+
+      // Dernier fallback vers calcul simple
+      return {
+        coordinates: [start, end],
+        distance: calculateDistance(start, end),
+        duration: Math.round(calculateDistance(start, end) / 1.4), // ~1.4 m/s vitesse de marche
+        steps: [],
+        fallback: true,
+      };
+    }
+  }
+};
+
+// Style pour la route
+const ROUTE_STYLE = new Style({
+  stroke: new Stroke({
+    color: "#3b82f6",
+    width: 6,
+    lineCap: "round",
+    lineJoin: "round",
+  }),
+});
+
 // Composant Modal optimisé
 const WelcomeModal = React.memo(({ isOpen, onDestinationSet }) => {
   const [block, setBlock] = useState("");
@@ -137,8 +258,6 @@ const WelcomeModal = React.memo(({ isOpen, onDestinationSet }) => {
           </div>
 
           <button type="submit" className="submit-btn">
-            {/* <span className="thumb-up">👍🏻</span>
-            <span>Let's go !</span> */}
             <span className="go-bike">🛵💨</span>
           </button>
         </form>
@@ -159,9 +278,16 @@ function App() {
   const destinationSource = useMemo(() => new VectorSource(), []);
   const userPositionSource = useMemo(() => new VectorSource(), []);
   const poiSource = useMemo(() => new VectorSource(), []);
+  const routeSource = useMemo(() => new VectorSource(), []); // Nouvelle source pour la route
   const orientationRef = useRef(null);
   const watchIdRef = useRef(null);
-  const isHighAccuracyActiveRef = useRef(false); // Fix: Variable manquante
+  const isHighAccuracyActiveRef = useRef(false);
+
+  // Nouveaux états pour la navigation
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [route, setRoute] = useState(null);
+  const [distanceToDestination, setDistanceToDestination] = useState(null);
+  const [hasArrived, setHasArrived] = useState(false);
 
   useGeographic();
 
@@ -311,6 +437,43 @@ function App() {
     };
   };
 
+  // Fonction pour démarrer la navigation
+  const startNavigation = useCallback(async () => {
+    if (!userPosition || !destination?.coords) return;
+
+    try {
+      const routeData = await calculateRoute(userPosition, destination.coords);
+      setRoute(routeData);
+      setIsNavigating(true);
+
+      // Afficher la route sur la carte
+      routeSource.clear();
+      const routeFeature = new Feature({
+        geometry: new LineString(routeData.coordinates),
+      });
+      routeFeature.setStyle(ROUTE_STYLE);
+      routeSource.addFeature(routeFeature);
+
+      // Ajuster la vue pour montrer la route complète
+      const extent = routeFeature.getGeometry().getExtent();
+      mapInstanceRef.current
+        .getView()
+        .fit(extent, { padding: [50, 50, 50, 50] });
+    } catch (error) {
+      console.error("Erreur lors du calcul de l'itinéraire:", error);
+      alert("Impossible de calculer l'itinéraire");
+    }
+  }, [userPosition, destination, routeSource]);
+
+  // Fonction pour arrêter la navigation
+  const stopNavigation = useCallback(() => {
+    setIsNavigating(false);
+    setRoute(null);
+    setDistanceToDestination(null);
+    setHasArrived(false);
+    routeSource.clear();
+  }, [routeSource]);
+
   // Gestion de la destination
   const handleDestinationSet = useCallback(async (block, lot) => {
     try {
@@ -353,6 +516,10 @@ function App() {
         new VectorLayer({
           source: destinationSource,
           zIndex: 99,
+        }),
+        new VectorLayer({
+          source: routeSource,
+          zIndex: 98,
         }),
       ],
       view: new View({
@@ -421,6 +588,23 @@ function App() {
     []
   );
 
+  // Surveillance de la distance et détection d'arrivée
+  useEffect(() => {
+    if (!isNavigating || !userPosition || !destination?.coords) return;
+
+    const distance = calculateDistance(userPosition, destination.coords);
+    setDistanceToDestination(distance);
+
+    // Détection d'arrivée (moins de 10 mètres)
+    if (distance < 10 && !hasArrived) {
+      setHasArrived(true);
+      setIsNavigating(false);
+      alert(
+        `🎉 You have arrived at ${destination.data?.block} - ${destination.data?.lot}!`
+      );
+    }
+  }, [userPosition, destination, isNavigating, hasArrived]);
+
   // Mise à jour du marqueur de destination
   useEffect(() => {
     if (!destination?.coords || !destinationSource) return;
@@ -461,6 +645,53 @@ function App() {
       >
         <MdCenterFocusStrong />
       </button>
+
+      {/* Interface de navigation */}
+      {destination?.coords && userPosition && !showWelcomeModal && (
+        <div className="navigation-controls">
+          {!isNavigating ? (
+            <button
+              onClick={startNavigation}
+              className="navigation-button start-navigation"
+            >
+              <MdNavigation />
+              <span>Start navigation</span>
+            </button>
+          ) : (
+            <div className="navigation-info">
+              <button
+                onClick={stopNavigation}
+                className="navigation-button stop-navigation"
+              >
+                <MdStop />
+                <span>Stop</span>
+              </button>
+              {distanceToDestination && (
+                <div className="distance-info">
+                  <span>Distance: {Math.round(distanceToDestination)}m</span>
+                  {route && (
+                    <>
+                      <span>
+                        Duration: {Math.round(route.duration / 60)}min
+                      </span>
+                      {route.provider && (
+                        <span className="route-provider">
+                          via{" "}
+                          {route.provider === "osrm"
+                            ? "OSRM"
+                            : route.fallback
+                            ? "Direct"
+                            : "ORS"}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <WelcomeModal
         isOpen={showWelcomeModal}

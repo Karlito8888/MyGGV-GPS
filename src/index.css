@@ -136,7 +136,6 @@ body {
   z-index: 1000;
 }
 
-
 /* Footer Styles */
 .footer {
   height: 60px;
@@ -151,7 +150,6 @@ body {
   right: 0;
   z-index: 1000;
 }
-
 
 /* --- Map Container & Map --- */
 .map {
@@ -477,4 +475,107 @@ body {
 }
 .ol-attribution a {
   color: #007bff !important;
+}
+
+/* --- Navigation Controls --- */
+.navigation-controls {
+  position: absolute;
+  bottom: 85px;
+  right: 25px;
+  z-index: 1000;
+}
+
+.navigation-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 25px;
+  font-family: "Madimi One", serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 120px;
+  justify-content: center;
+}
+
+.start-navigation {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.start-navigation:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.stop-navigation {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.stop-navigation:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+.navigation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.distance-info {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  color: #374151;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+  min-width: 100px;
+}
+
+.distance-info span {
+  font-weight: 500;
+}
+
+.route-provider {
+  font-size: 10px !important;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Animation pour les boutons de navigation */
+.navigation-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive pour mobile */
+@media (max-width: 480px) {
+  .navigation-controls {
+    bottom: 75px;
+    right: 15px;
+  }
+
+  .navigation-button {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-width: 100px;
+  }
+
+  .distance-info {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
 }
