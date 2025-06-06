@@ -329,7 +329,16 @@ function App() {
   // Mise à jour de la position sur la carte
   const updateUserPosition = useCallback(
     (position) => {
-      if (!position) return;
+      if (!position) {
+        console.warn("⚠️ updateUserPosition appelé avec position null");
+        return;
+      }
+
+      console.log("🗺️ Mise à jour position sur carte:", {
+        coords: position.coords,
+        accuracy: position.accuracy,
+        source: position.source,
+      });
 
       setUserPosition(position.coords);
       setPositionAccuracy(position.accuracy);
@@ -414,10 +423,26 @@ function App() {
     let lastWatchId;
 
     const startWatching = (highAccuracy) => {
-      if (lastWatchId) navigator.geolocation.clearWatch(lastWatchId);
+      if (lastWatchId) {
+        console.log("🔄 Arrêt du watch précédent:", lastWatchId);
+        navigator.geolocation.clearWatch(lastWatchId);
+      }
+
+      console.log("📍 Démarrage du watch géolocalisation:", {
+        highAccuracy,
+        hasGeolocation: !!navigator.geolocation,
+        permissions: navigator.permissions ? "disponible" : "non disponible",
+      });
 
       lastWatchId = navigator.geolocation.watchPosition(
         (position) => {
+          console.log("✅ Position reçue:", {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: new Date(position.timestamp).toLocaleTimeString(),
+          });
+
           const adapted = adaptPosition(
             position,
             highAccuracy ? "gps" : "network"
@@ -426,18 +451,31 @@ function App() {
 
           // Passage en low power si précision suffisante
           if (highAccuracy && position.coords.accuracy < 15) {
+            console.log("🎯 Précision suffisante, passage en mode économie");
             isHighAccuracyActiveRef.current = false;
             startWatching(false);
           }
         },
         (error) => {
-          console.error("Watch error:", error);
-          if (highAccuracy) startWatching(false);
+          console.error("❌ Erreur géolocalisation:", {
+            code: error.code,
+            message: error.message,
+            PERMISSION_DENIED: error.code === 1,
+            POSITION_UNAVAILABLE: error.code === 2,
+            TIMEOUT: error.code === 3,
+          });
+
+          if (highAccuracy) {
+            console.log("🔄 Tentative en mode basse précision");
+            startWatching(false);
+          } else {
+            console.error("💥 Échec total de la géolocalisation");
+          }
         },
         {
           enableHighAccuracy: highAccuracy,
           maximumAge: highAccuracy ? 0 : 60000,
-          timeout: highAccuracy ? 10000 : 5000,
+          timeout: highAccuracy ? 15000 : 10000, // Timeout plus long
         }
       );
 
@@ -689,6 +727,40 @@ function App() {
       >
         <MdCenterFocusStrong />
       </button>
+
+      {/* Bouton de debug géolocalisation */}
+      {!userPosition && (
+        <button
+          onClick={() => {
+            console.log("🔄 Test géolocalisation forcé");
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                console.log("✅ Test réussi:", position);
+                const adapted = adaptPosition(position, "test");
+                updateUserPosition(adapted);
+              },
+              (error) => {
+                console.error("❌ Test échoué:", error);
+                alert(`Erreur géolocalisation: ${error.message}`);
+              },
+              { enableHighAccuracy: true, timeout: 10000 }
+            );
+          }}
+          style={{
+            position: "absolute",
+            top: "80px",
+            right: "25px",
+            padding: "10px",
+            background: "#ff6b6b",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            zIndex: 1000,
+          }}
+        >
+          Test GPS
+        </button>
+      )}
 
       {/* Interface de navigation */}
       {destination?.coords && userPosition && !showWelcomeModal && (
