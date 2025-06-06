@@ -35,6 +35,18 @@ body {
 }
 
 /* Styles des sources de position */
+.position-marker[data-source="gps"] {
+  background-color: #34a853; /* Vert - Position précise */
+}
+.position-marker[data-source="network"] {
+  background-color: #fbbc05; /* Jaune - Position approximative */
+}
+.position-marker[data-source="fallback"] {
+  background-color: #ea4335; /* Rouge - Position par défaut */
+}
+.position-marker[data-source="debug"] {
+  background-color: #4285f4; /* Bleu - Mode debug */
+}
 .position-marker[data-source="google"] {
   background-color: #34a853;
 }

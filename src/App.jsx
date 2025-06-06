@@ -224,34 +224,79 @@ function App() {
     }
   };
 
-  const getGooglePosition = async () => {
-    try {
-      const res = await fetch(`https://www.googleapis.com/geolocation/v1/geolocate?key=${import.meta.env.VITE_GOOGLE_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ considerIp: true })
-      });
-      
-      if (!res.ok) {
-        const error = await res.json();
-        if (error.error?.status === 'PERMISSION_DENIED') {
-          console.warn('Google Geolocation: Permission denied by user');
-          return null;
-        }
-        throw new Error(error.error?.message || 'Google API error');
-      }
+  /**
+   * Adapte la position native au format de l'app
+   * Ajoute des métadonnées utiles et filtre les données
+   */
+  const adaptPosition = (position, source) => ({
+    coords: {
+      longitude: position.coords.longitude,
+      latitude: position.coords.latitude,
+      accuracy: position.coords.accuracy
+    },
+    source,
+    timestamp: position.timestamp || Date.now()
+  });
 
-      const { location, accuracy } = await res.json();
+  /**
+   * Obtient la position la plus précise possible en utilisant les APIs natives
+   * Utilise une stratégie à 3 niveaux :
+   * 1. GPS haute précision (si disponible)
+   * 2. Position réseau récente (cache)
+   * 3. Position par défaut (fallback)
+   */
+  const getPrecisePosition = async () => {
+    // Délai maximum pour obtenir une position (en ms)
+    const GPS_TIMEOUT = 10000; 
+    const NETWORK_TIMEOUT = 5000;
+    
+    try {
+      // 1. Essai GPS haute précise
+      const gpsPosition = await new Promise((resolve) => {
+        if (!navigator.geolocation) return resolve(null);
+        
+        navigator.geolocation.getCurrentPosition(
+          position => resolve(adaptPosition(position, 'gps')),
+          () => resolve(null),
+          {
+            enableHighAccuracy: true,  // ◼️ Activation du GPS hardware
+            maximumAge: 0,            // ◼️ Pas de cache
+            timeout: GPS_TIMEOUT
+          }
+        );
+      });
+
+      if (gpsPosition) return gpsPosition;
+
+      // 2. Position réseau (moins précise mais rapide)
+      const networkPosition = await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          position => resolve(adaptPosition(position, 'network')),
+          () => resolve(null),
+          {
+            enableHighAccuracy: false,
+            maximumAge: 300000,        // ◼️ Accepte une position <5min
+            timeout: NETWORK_TIMEOUT
+          }
+        );
+      });
+
+      if (networkPosition) return networkPosition;
+
+      // 3. Fallback ultime (position par défaut)
+      console.warn("Using fallback position");
       return {
         coords: {
-          longitude: location.lng,
-          latitude: location.lat,
-          accuracy
+          longitude: INITIAL_POSITION[0],
+          latitude: INITIAL_POSITION[1],
+          accuracy: 1000
         },
-        source: 'google'
+        source: 'fallback',
+        timestamp: Date.now()
       };
+
     } catch (error) {
-      console.error("Google Geolocation error:", error.message);
+      console.error("Geolocation error:", error);
       return null;
     }
   };
@@ -324,21 +369,53 @@ function App() {
   };
 
   // Configuration de la géolocalisation continue
-  const setupGeolocation = async () => {
+  const setupGeolocation = () => {
     if (import.meta.env.VITE_DEBUG_GEOLOC) {
       updateUserPosition({ 
         coords: INITIAL_POSITION,
         accuracy: 5,
         source: "debug"
       });
-      return;
+      return () => {};
     }
 
-    const position = await getBestPosition();
-    if (position) {
-      updateUserPosition(position);
-      recenterMap(mapInstanceRef.current, [position.coords.longitude, position.coords.latitude]);
-    }
+    let lastWatchId;
+    let isHighAccuracyActive = false;
+
+    const startWatching = (highAccuracy) => {
+      if (lastWatchId) navigator.geolocation.clearWatch(lastWatchId);
+
+      lastWatchId = navigator.geolocation.watchPosition(
+        position => {
+          const adapted = adaptPosition(position, highAccuracy ? 'gps' : 'network');
+          updateUserPosition(adapted);
+          
+          // Passage en low power si précision suffisante
+          if (highAccuracy && position.coords.accuracy < 15) {
+            isHighAccuracyActive = false;
+            startWatching(false);
+          }
+        },
+        error => {
+          console.error("Watch error:", error);
+          if (highAccuracy) startWatching(false);
+        },
+        {
+          enableHighAccuracy: highAccuracy,
+          maximumAge: highAccuracy ? 0 : 60000,
+          timeout: highAccuracy ? 10000 : 5000
+        }
+      );
+
+      isHighAccuracyActive = highAccuracy;
+    };
+
+    // Démarre en haute précision
+    startWatching(true);
+
+    return () => {
+      if (lastWatchId) navigator.geolocation.clearWatch(lastWatchId);
+    };
   };
 
   // Gestion de la destination

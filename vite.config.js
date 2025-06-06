@@ -43,21 +43,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /googleapis\.com\/geolocation/,
-            handler: 'NetworkFirst',
-            options: { 
-              cacheName: 'google-geolocation',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 86400 // 24h
-              }
-            }
-          },
-          {
-            urlPattern: ({request}) => request.destination === 'image',
+            urlPattern: /\.(?:js|css|html|json|png|jpg|jpeg|svg|woff2)$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'images',
+              cacheName: 'static-assets',
               expiration: { maxEntries: 50 }
             }
           }
