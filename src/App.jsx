@@ -385,9 +385,21 @@ function App() {
     orientationRef.current = event.alpha; // 0-360 degrees
   }, []);
 
+  // Simple : utilise debug si la variable est définie à "true"
+  const debugMode = import.meta.env.VITE_DEBUG_GEOLOC === "true";
+
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
-    if (import.meta.env.VITE_DEBUG_GEOLOC) {
+    console.log("🔍 Configuration géolocalisation:", {
+      VITE_DEBUG_GEOLOC: import.meta.env.VITE_DEBUG_GEOLOC,
+      isDev: import.meta.env.DEV,
+      debugMode,
+      hasGeolocation: !!navigator.geolocation,
+      screenWidth: window.innerWidth,
+    });
+
+    if (debugMode) {
+      console.log("🖥️ Mode debug géolocalisation activé");
       updateUserPosition({
         coords: INITIAL_POSITION,
         accuracy: 5,
@@ -395,6 +407,8 @@ function App() {
       });
       return () => {};
     }
+
+    console.log("📱 Mode géolocalisation réelle activé");
 
     let lastWatchId;
 
