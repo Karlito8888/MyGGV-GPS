@@ -206,33 +206,46 @@ function App() {
       <div className="welcome-modal-overlay">
         <div className="welcome-modal">
           <div className="modal-header">
-            <h2>Bienvenue</h2>
-            <p>Veuillez entrer les coordonnées de votre destination</p>
+            <h2>
+              Welcome to
+              <br />
+              Garden Grove Village
+            </h2>
+            <p>Please enter your destination details</p>
           </div>
 
           <form onSubmit={handleSubmit} className="modal-form">
             <div className="form-group">
-              <label>Numéro de bloc</label>
-              <input
-                type="text"
-                value={block}
-                onChange={(e) => setBlock(e.target.value)}
-                required
-              />
+              <label className="floating-label">
+                <span>Block number</span>
+                <input
+                  type="text"
+                  className="input input-md"
+                  placeholder="Select the block number"
+                  value={block}
+                  onChange={(e) => setBlock(e.target.value)}
+                  required
+                />
+              </label>
             </div>
 
             <div className="form-group">
-              <label>Numéro de lot</label>
-              <input
-                type="text"
-                value={lot}
-                onChange={(e) => setLot(e.target.value)}
-                required
-              />
+              <label className="floating-label">
+                <span>Lot number</span>
+                <input
+                  type="text"
+                  className="input input-md"
+                  placeholder="Select the lot number"
+                  value={lot}
+                  onChange={(e) => setLot(e.target.value)}
+                  required
+                />
+              </label>
             </div>
 
             <button type="submit" className="submit-btn">
-              Valider
+              <span className="thumb-up">👍🏻</span> Let's go !{" "}
+              <span className="go-bike">🛵</span>
             </button>
           </form>
         </div>
