@@ -442,7 +442,7 @@ function App() {
       geometry: new Point(destination.coords),
       type: "destination",
     });
-    feature.setStyle(createFeatureStyle("/default-marker.png", 1));
+    feature.setStyle(createFeatureStyle("/default-marker.png", 0.7));
     destinationSource.addFeature(feature);
   }, [destination, destinationSource]);
 
