@@ -155,57 +155,6 @@ function App() {
   useGeographic();
 
 
-  // Nouvelle version simplifiée de getBestPosition
-  const getBestPosition = async () => {
-    // Délai maximum pour obtenir une position (en ms)
-    const GPS_TIMEOUT = 10000; 
-    
-    try {
-      // Essai GPS haute précise
-      const position = await new Promise((resolve) => {
-        if (!navigator.geolocation) return resolve(null);
-        
-        navigator.geolocation.getCurrentPosition(
-          position => resolve(position),
-          () => resolve(null),
-          {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: GPS_TIMEOUT
-          }
-        );
-      });
-
-      if (position) {
-        return {
-          coords: {
-            longitude: position.coords.longitude,
-            latitude: position.coords.latitude,
-            accuracy: position.coords.accuracy
-          },
-          source: 'gps',
-          timestamp: position.timestamp
-        };
-      }
-
-      // Fallback ultime
-      console.warn("Using fallback position");
-      return { 
-        coords: {
-          longitude: INITIAL_POSITION[0],
-          latitude: INITIAL_POSITION[1],
-          accuracy: 1000
-        },
-        source: 'fallback',
-        timestamp: Date.now()
-      };
-
-    } catch (error) {
-      console.error("Geolocation error:", error);
-      return null;
-    }
-  };
-
   /**
    * Adapte la position native au format de l'app
    * Ajoute des métadonnées utiles et filtre les données
@@ -219,70 +168,6 @@ function App() {
     source,
     timestamp: position.timestamp || Date.now()
   });
-
-  /**
-   * Obtient la position la plus précise possible en utilisant les APIs natives
-   * Utilise une stratégie à 3 niveaux :
-   * 1. GPS haute précision (si disponible)
-   * 2. Position réseau récente (cache)
-   * 3. Position par défaut (fallback)
-   */
-  const getPrecisePosition = async () => {
-    // Délai maximum pour obtenir une position (en ms)
-    const GPS_TIMEOUT = 10000; 
-    const NETWORK_TIMEOUT = 5000;
-    
-    try {
-      // 1. Essai GPS haute précise
-      const gpsPosition = await new Promise((resolve) => {
-        if (!navigator.geolocation) return resolve(null);
-        
-        navigator.geolocation.getCurrentPosition(
-          position => resolve(adaptPosition(position, 'gps')),
-          () => resolve(null),
-          {
-            enableHighAccuracy: true,  // ◼️ Activation du GPS hardware
-            maximumAge: 0,            // ◼️ Pas de cache
-            timeout: GPS_TIMEOUT
-          }
-        );
-      });
-
-      if (gpsPosition) return gpsPosition;
-
-      // 2. Position réseau (moins précise mais rapide)
-      const networkPosition = await new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          position => resolve(adaptPosition(position, 'network')),
-          () => resolve(null),
-          {
-            enableHighAccuracy: false,
-            maximumAge: 300000,        // ◼️ Accepte une position <5min
-            timeout: NETWORK_TIMEOUT
-          }
-        );
-      });
-
-      if (networkPosition) return networkPosition;
-
-      // 3. Fallback ultime (position par défaut)
-      console.warn("Using fallback position");
-      return {
-        coords: {
-          longitude: INITIAL_POSITION[0],
-          latitude: INITIAL_POSITION[1],
-          accuracy: 1000
-        },
-        source: 'fallback',
-        timestamp: Date.now()
-      };
-
-    } catch (error) {
-      console.error("Geolocation error:", error);
-      return null;
-    }
-  };
-
 
   // Mise à jour de la position sur la carte
   const updateUserPosition = (position) => {
@@ -362,7 +247,6 @@ function App() {
     }
 
     let lastWatchId;
-    let isHighAccuracyActive = false;
 
     const startWatching = (highAccuracy) => {
       if (lastWatchId) navigator.geolocation.clearWatch(lastWatchId);
