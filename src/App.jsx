@@ -34,35 +34,55 @@ const createFeatureStyle = (iconUrl, scale, color) => {
   });
 };
 
-// Styles pour la position utilisateur
+// Styles pour la position utilisateur (plus visibles)
 const USER_POSITION_STYLES = {
   gps: new Style({
     image: new Circle({
-      radius: 8,
+      radius: 12, // Plus gros
       fill: new Fill({ color: "#34A853" }),
       stroke: new Stroke({
         color: "white",
-        width: 2,
+        width: 3, // Bordure plus épaisse
       }),
     }),
   }),
   fallback: new Style({
     image: new Circle({
-      radius: 6,
+      radius: 10,
       fill: new Fill({ color: "#EA4335" }),
       stroke: new Stroke({
         color: "white",
-        width: 2,
+        width: 3,
       }),
     }),
   }),
   debug: new Style({
     image: new Circle({
-      radius: 10,
+      radius: 12,
       fill: new Fill({ color: "#4285F4" }),
       stroke: new Stroke({
         color: "white",
         width: 3,
+      }),
+    }),
+  }),
+  test: new Style({
+    image: new Circle({
+      radius: 15, // Très visible pour les tests
+      fill: new Fill({ color: "#FF9800" }), // Orange
+      stroke: new Stroke({
+        color: "#000000", // Bordure noire
+        width: 4,
+      }),
+    }),
+  }),
+  forced: new Style({
+    image: new Circle({
+      radius: 15,
+      fill: new Fill({ color: "#9C27B0" }), // Violet
+      stroke: new Stroke({
+        color: "#FFFFFF",
+        width: 4,
       }),
     }),
   }),
@@ -385,7 +405,12 @@ function App() {
       addDebugLog("🎨 Style appliqué", { source: position.source });
 
       // Ajout du cercle de précision
-      if (position.accuracy) {
+      addDebugLog("🔍 Vérif accuracy", {
+        accuracy: position.accuracy,
+        type: typeof position.accuracy,
+      });
+
+      if (position.accuracy && position.accuracy > 0) {
         const accuracyFeature = new Feature({
           geometry: new Point(position.coords),
         });
@@ -394,7 +419,13 @@ function App() {
         clonedStyle.getImage().setRadius(position.accuracy);
         accuracyFeature.setStyle(clonedStyle);
         userPositionSource.addFeature(accuracyFeature);
-        addDebugLog("🎯 Cercle précision ajouté");
+        addDebugLog("🎯 Cercle précision ajouté", {
+          radius: position.accuracy,
+        });
+      } else {
+        addDebugLog("⚠️ Pas de cercle précision", {
+          accuracy: position.accuracy,
+        });
       }
 
       userPositionSource.addFeature(pointFeature);
