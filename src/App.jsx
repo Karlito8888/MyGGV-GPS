@@ -169,8 +169,9 @@ function App() {
     timestamp: position.timestamp || Date.now()
   });
 
-  // Mise à jour de la position sur la carte
+  // Mise à jour de la position avec cache et prédiction
   const updateUserPosition = (position) => {
+    if (!position?.coords) return;
     if (!position) return;
 
     setUserPosition(position.coords);
@@ -246,31 +247,79 @@ function App() {
       return () => {};
     }
 
+    const positionsCache = [];
     let lastWatchId;
+
+    const averagePositions = (positions) => {
+      if (positions.length === 0) return null;
+      if (positions.length === 1) return positions[0];
+      
+      // Moyenne pondérée avec plus de poids sur les positions récentes
+      const weights = positions.map((_, i) => (i + 1) / positions.length);
+      const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+      
+      const avgLng = positions.reduce(
+        (sum, pos, i) => sum + pos.coords.longitude * weights[i], 0
+      ) / totalWeight;
+      
+      const avgLat = positions.reduce(
+        (sum, pos, i) => sum + pos.coords.latitude * weights[i], 0
+      ) / totalWeight;
+      
+      return {
+        coords: {
+          longitude: avgLng,
+          latitude: avgLat,
+          accuracy: Math.max(...positions.map(p => p.coords.accuracy))
+        },
+        source: positions[0].source,
+        timestamp: Date.now()
+      };
+    };
 
     const startWatching = (highAccuracy) => {
       if (lastWatchId) navigator.geolocation.clearWatch(lastWatchId);
 
+      const watchOptions = highAccuracy 
+        ? { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 } 
+        : { enableHighAccuracy: false, maximumAge: 60000, timeout: 5000 };
+
       lastWatchId = navigator.geolocation.watchPosition(
         position => {
           const adapted = adaptPosition(position, highAccuracy ? 'gps' : 'network');
-          updateUserPosition(adapted);
           
-          // Passage en low power si précision suffisante
-          if (highAccuracy && position.coords.accuracy < 15) {
-            isHighAccuracyActive = false;
-            startWatching(false);
+          // Mise en cache et lissage
+          positionsCache.push(adapted);
+          if (positionsCache.length > 5) positionsCache.shift();
+          const smoothedPos = averagePositions(positionsCache);
+
+          // Prédiction si orientation disponible
+          let finalPosition = smoothedPos || adapted;
+          if (orientationRef.current && smoothedPos) {
+            const headingRad = (orientationRef.current * Math.PI) / 180;
+            const predLng = smoothedPos.coords.longitude + Math.cos(headingRad) * 0.0001;
+            const predLat = smoothedPos.coords.latitude + Math.sin(headingRad) * 0.0001;
+            finalPosition = {
+              ...smoothedPos,
+              coords: {
+                ...smoothedPos.coords,
+                longitude: predLng,
+                latitude: predLat
+              }
+            };
+          }
+
+          updateUserPosition(finalPosition);
+          
+          if (highAccuracy && smoothedPos?.coords?.accuracy < 15) {
+            startWatching(false); // Bascule en mode économie
           }
         },
         error => {
           console.error("Watch error:", error);
           if (highAccuracy) startWatching(false);
         },
-        {
-          enableHighAccuracy: highAccuracy,
-          maximumAge: highAccuracy ? 0 : 60000,
-          timeout: highAccuracy ? 10000 : 5000
-        }
+        watchOptions
       );
 
       isHighAccuracyActive = highAccuracy;
