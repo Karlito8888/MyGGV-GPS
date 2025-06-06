@@ -107,6 +107,7 @@ const WelcomeModal = ({ isOpen, onRequestClose, onDestinationSet }) => {
               <input
                 type="text"
                 placeholder="Select the block number"
+                className="input input-md"
                 value={block}
                 onChange={(e) => setBlock(e.target.value)}
                 required
@@ -120,6 +121,7 @@ const WelcomeModal = ({ isOpen, onRequestClose, onDestinationSet }) => {
               <input
                 type="text"
                 placeholder="Select the lot number"
+                className="input input-md"
                 value={lot}
                 onChange={(e) => setLot(e.target.value)}
                 required
