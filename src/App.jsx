@@ -49,7 +49,6 @@ const CONFIG = {
   STYLES: {
     gps: { radius: 8, color: "#34A853", stroke: "#FFFFFF", width: 2 },
     network: { radius: 6, color: "#4285F4", stroke: "#FFFFFF", width: 2 },
-    debug: { radius: 10, color: "#FF6B6B", stroke: "#FFFFFF", width: 3 },
   },
   ROUTING: {
     OSRM_URL: "https://router.project-osrm.org/route/v1/walking",
@@ -384,20 +383,8 @@ function App() {
     orientationRef.current = event.alpha; // 0-360 degrees
   }, []);
 
-  // Simple : utilise debug si la variable est définie à "true"
-  const debugMode = import.meta.env.VITE_DEBUG_GEOLOC === "true";
-
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
-    if (debugMode) {
-      updateUserPosition({
-        coords: CONFIG.INITIAL_POSITION,
-        accuracy: 5,
-        source: "debug",
-      });
-      return () => {};
-    }
-
     let lastWatchId;
 
     const startWatching = (highAccuracy) => {
