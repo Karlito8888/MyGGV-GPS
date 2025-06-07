@@ -573,7 +573,8 @@ body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Responsive pour mobile */
+/* Optimisations pour smartphones (PWA mobile uniquement) */
+/* Ajustements pour petits écrans de smartphones */
 @media (max-width: 480px) {
   .navigation-controls {
     bottom: 75px;
@@ -589,5 +590,24 @@ body {
   .distance-info {
     font-size: 11px;
     padding: 6px 10px;
+  }
+
+  .position-info {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+/* Optimisations pour très petits smartphones */
+@media (max-width: 360px) {
+  .navigation-button {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-width: 90px;
+  }
+
+  .position-info {
+    font-size: 10px;
+    padding: 3px 6px;
   }
 }

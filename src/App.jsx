@@ -268,6 +268,10 @@ function App() {
   const [distanceToDestination, setDistanceToDestination] = useState(null);
   const [hasArrived, setHasArrived] = useState(false);
 
+  // États pour l'orientation
+  const [deviceOrientation, setDeviceOrientation] = useState(null);
+  const [orientationPermission, setOrientationPermission] = useState(null);
+
   useGeographic();
 
   // Style pour le cercle de précision (optimisé)
@@ -355,35 +359,109 @@ function App() {
     [userPositionSource, accuracyStyle, userPosition]
   );
 
-  // Surveillance de l'orientation
+  // Surveillance de l'orientation pour smartphones
   const setupDeviceOrientation = () => {
-    if (
-      window.DeviceOrientationEvent &&
-      typeof DeviceOrientationEvent.requestPermission === "function"
-    ) {
+    console.log("📱 Initialisation de l'orientation mobile...");
+
+    if (!window.DeviceOrientationEvent) {
+      console.error("❌ DeviceOrientationEvent non supporté sur ce smartphone");
+      setOrientationPermission("not-supported");
+      alert(
+        "Votre smartphone ne supporte pas l'orientation. Veuillez utiliser un appareil compatible."
+      );
+      return;
+    }
+
+    // Vérification si on est sur iOS (permission requise)
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+      console.log("🍎 iPhone détecté - demande de permission requise");
+
       DeviceOrientationEvent.requestPermission()
         .then((permissionState) => {
+          console.log("🔐 Permission orientation iPhone:", permissionState);
+          setOrientationPermission(permissionState);
+
           if (permissionState === "granted") {
-            window.addEventListener("deviceorientation", handleOrientation);
+            startOrientationListening();
+          } else {
+            console.warn("❌ Permission orientation refusée sur iPhone");
+            alert(
+              "L'orientation est requise pour la navigation. Veuillez autoriser l'accès."
+            );
           }
         })
-        .catch(console.error);
+        .catch((error) => {
+          console.error(
+            "❌ Erreur demande permission orientation iPhone:",
+            error
+          );
+          setOrientationPermission("denied");
+        });
     } else {
-      window.addEventListener("deviceorientation", handleOrientation);
+      // Android
+      console.log("🤖 Android détecté - activation directe de l'orientation");
+      setOrientationPermission("granted");
+      startOrientationListening();
     }
   };
 
+  const startOrientationListening = () => {
+    console.log("📱 Démarrage écoute orientation mobile...");
+    window.addEventListener("deviceorientation", handleOrientation, true);
+
+    // Test pour vérifier que les événements arrivent sur mobile
+    setTimeout(() => {
+      if (orientationRef.current === null) {
+        console.warn(
+          "⚠️ Aucun événement d'orientation reçu après 3s sur mobile"
+        );
+        alert(
+          "Problème d'orientation détecté. Essayez de bouger votre smartphone."
+        );
+      } else {
+        console.log(
+          "✅ Orientation mobile fonctionnelle:",
+          orientationRef.current
+        );
+      }
+    }, 3000);
+  };
+
   const handleOrientation = useCallback((event) => {
-    orientationRef.current = event.alpha; // 0-360 degrees
+    // Gestion de l'orientation pour smartphones uniquement
+    // event.alpha: rotation autour de l'axe Z (0-360°) - Boussole
+    // event.beta: rotation autour de l'axe X (-180 à 180°) - Inclinaison avant/arrière
+    // event.gamma: rotation autour de l'axe Y (-90 à 90°) - Inclinaison gauche/droite
+
+    if (event.alpha !== null) {
+      orientationRef.current = event.alpha;
+      setDeviceOrientation({
+        alpha: event.alpha,
+        beta: event.beta,
+        gamma: event.gamma,
+        timestamp: Date.now(),
+      });
+
+      // Log périodique pour debug mobile (toutes les 5 secondes)
+      if (Date.now() % 5000 < 100) {
+        console.log("📱 Orientation smartphone:", {
+          boussole: Math.round(event.alpha),
+          inclinaison: Math.round(event.beta),
+          rotation: Math.round(event.gamma),
+        });
+      }
+    }
   }, []);
 
-  // Configuration de la géolocalisation continue
+  // Configuration de la géolocalisation pour smartphones
   const setupGeolocation = () => {
-    console.log("🌍 Initialisation de la géolocalisation...");
+    console.log("📱 Initialisation de la géolocalisation mobile...");
 
     if (!navigator.geolocation) {
-      console.error("❌ Géolocalisation non supportée");
-      alert("Votre navigateur ne supporte pas la géolocalisation");
+      console.error("❌ Géolocalisation non supportée sur ce smartphone");
+      alert(
+        "Votre smartphone ne supporte pas la géolocalisation. Veuillez utiliser un appareil compatible."
+      );
       return;
     }
 
@@ -399,15 +477,15 @@ function App() {
         : CONFIG.GEOLOCATION.LOW_ACCURACY;
 
       console.log(
-        `📍 Démarrage géolocalisation (${
-          highAccuracy ? "haute" : "basse"
-        } précision)`,
+        `📱 Démarrage géolocalisation mobile (${
+          highAccuracy ? "GPS haute précision" : "réseau basse précision"
+        })`,
         options
       );
 
       lastWatchId = navigator.geolocation.watchPosition(
         (position) => {
-          console.log("📍 Position reçue:", position.coords);
+          console.log("📍 Position mobile reçue:", position.coords);
           const adapted = {
             coords: [position.coords.longitude, position.coords.latitude],
             accuracy: position.coords.accuracy,
@@ -416,28 +494,30 @@ function App() {
           };
           updateUserPosition(adapted);
 
-          // Passage en low power si précision suffisante
+          // Passage en mode économie si précision GPS suffisante
           if (
             highAccuracy &&
             position.coords.accuracy < CONFIG.GEOLOCATION.PRECISION_THRESHOLD
           ) {
-            console.log("✅ Précision suffisante, passage en mode économie");
+            console.log("✅ GPS précis, passage en mode économie mobile");
             isHighAccuracyActiveRef.current = false;
             startWatching(false);
           }
         },
         (error) => {
           console.error(
-            "❌ Erreur géolocalisation:",
+            "❌ Erreur géolocalisation mobile:",
             error.message,
             error.code
           );
           if (highAccuracy) {
-            console.log("🔄 Tentative en basse précision...");
+            console.log("🔄 GPS échoué, tentative réseau mobile...");
             startWatching(false);
           } else {
-            // Utiliser la position par défaut si tout échoue
-            console.log("🏠 Utilisation de la position par défaut");
+            // Utiliser la position par défaut si tout échoue sur mobile
+            console.log(
+              "🏠 Utilisation position par défaut (Garden Grove Village)"
+            );
             updateUserPosition({
               coords: CONFIG.INITIAL_POSITION,
               accuracy: 1000,
@@ -452,7 +532,7 @@ function App() {
       isHighAccuracyActiveRef.current = highAccuracy;
     };
 
-    // Démarre en haute précision
+    // Démarre en haute précision GPS sur mobile
     startWatching(true);
 
     return () => {
@@ -468,26 +548,28 @@ function App() {
     });
 
     if (!userPosition) {
-      console.warn("❌ Position utilisateur manquante");
+      console.warn("❌ Position smartphone manquante");
       alert(
-        "Position utilisateur non disponible. Veuillez attendre la géolocalisation."
+        "📱 Position non disponible. Veuillez attendre que votre smartphone vous localise."
       );
       return;
     }
 
     if (!destination?.coords) {
       console.warn("❌ Destination manquante");
-      alert("Destination non définie.");
+      alert(
+        "📍 Destination non définie. Veuillez sélectionner un bloc et lot."
+      );
       return;
     }
 
     try {
-      console.log("🗺️ Calcul de l'itinéraire...");
+      console.log("📱 Calcul de l'itinéraire mobile...");
       const routeData = await calculateRoute(userPosition, destination.coords);
       setRoute(routeData);
       setIsNavigating(true);
 
-      // Afficher la route sur la carte
+      // Afficher la route sur la carte mobile
       routeSource.clear();
       const routeFeature = new Feature({
         geometry: new LineString(routeData.coordinates),
@@ -495,16 +577,19 @@ function App() {
       routeFeature.setStyle(ROUTE_STYLE);
       routeSource.addFeature(routeFeature);
 
-      // Ajuster la vue pour montrer la route complète
+      // Ajuster la vue mobile pour montrer la route complète
       const extent = routeFeature.getGeometry().getExtent();
       mapInstanceRef.current
         .getView()
         .fit(extent, { padding: [50, 50, 50, 50] });
 
-      console.log("✅ Navigation démarrée avec succès");
+      console.log("✅ Navigation mobile démarrée avec succès");
     } catch (error) {
-      console.error("❌ Erreur lors du calcul de l'itinéraire:", error);
-      alert("Impossible de calculer l'itinéraire: " + error.message);
+      console.error("❌ Erreur calcul itinéraire mobile:", error);
+      alert(
+        "📱 Impossible de calculer l'itinéraire sur votre smartphone: " +
+          error.message
+      );
     }
   }, [userPosition, destination, routeSource]);
 
@@ -628,7 +713,7 @@ function App() {
         setupDeviceOrientation();
         setupGeolocation();
 
-        console.log("🗺️ Carte initialisée en arrière-plan");
+        console.log("📱 Carte mobile initialisée en arrière-plan");
       } catch (error) {
         console.error("❌ Erreur initialisation carte:", error);
       }
@@ -651,9 +736,44 @@ function App() {
       if (watchIdRef.current) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
-      window.removeEventListener("deviceorientation", handleOrientation);
+      // Nettoyage des événements d'orientation
+      window.removeEventListener("deviceorientation", handleOrientation, true);
+      console.log("🧹 Nettoyage des événements d'orientation");
     };
   }, []);
+
+  // Calcul de la direction vers la destination
+  const getDirectionToDestination = useCallback(() => {
+    if (!userPosition || !destination?.coords || !deviceOrientation) {
+      return null;
+    }
+
+    // Calcul de l'angle entre la position actuelle et la destination
+    const bearing = turf.bearing(
+      turf.point(userPosition),
+      turf.point(destination.coords)
+    );
+
+    // Conversion de l'angle bearing (-180 à 180) en degrés (0 à 360)
+    const targetDirection = bearing < 0 ? bearing + 360 : bearing;
+
+    // Direction actuelle du device (0-360°)
+    const currentDirection = deviceOrientation.alpha;
+
+    // Différence entre la direction cible et la direction actuelle
+    let directionDiff = targetDirection - currentDirection;
+
+    // Normalisation de la différence (-180 à 180)
+    if (directionDiff > 180) directionDiff -= 360;
+    if (directionDiff < -180) directionDiff += 360;
+
+    return {
+      targetDirection: Math.round(targetDirection),
+      currentDirection: Math.round(currentDirection),
+      difference: Math.round(directionDiff),
+      isOnTarget: Math.abs(directionDiff) < 15, // Tolérance de 15°
+    };
+  }, [userPosition, destination, deviceOrientation]);
 
   // Style de destination optimisé
   const destinationStyle = useMemo(
@@ -702,16 +822,65 @@ function App() {
       <header className="header" style={{ zIndex: 10 }}>
         {positionSource && (
           <div className="position-info">
-            Source: <span data-source={positionSource}>{positionSource}</span> |
-            Précision: {positionAccuracy?.toFixed(1)}m
+            📱{" "}
+            {positionSource === "gps"
+              ? "GPS"
+              : positionSource === "network"
+              ? "Réseau"
+              : "Défaut"}
+            : {positionAccuracy?.toFixed(1)}m
+            {deviceOrientation && (
+              <span> | 🧭 {Math.round(deviceOrientation.alpha)}°</span>
+            )}
           </div>
         )}
+
+        {/* Bouton pour demander permission orientation sur iPhone */}
+        {orientationPermission === "denied" ||
+        orientationPermission === null ? (
+          <button
+            onClick={setupDeviceOrientation}
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              background: "rgba(255,165,0,0.9)",
+              color: "white",
+              border: "none",
+              padding: "8px 12px",
+              borderRadius: "5px",
+              fontSize: "12px",
+              cursor: "pointer",
+            }}
+          >
+            📱 Activer boussole
+          </button>
+        ) : (
+          orientationPermission === "granted" &&
+          deviceOrientation && (
+            <div
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                background: "rgba(0,255,0,0.8)",
+                padding: "5px 10px",
+                borderRadius: "5px",
+                fontSize: "12px",
+                color: "white",
+              }}
+            >
+              🧭 Boussole: {Math.round(deviceOrientation.alpha)}°
+            </div>
+          )
+        )}
+
         {/* Debug: Confirmation que la carte se charge */}
         {mapInstanceRef.current && showWelcomeModal && (
           <div
             style={{
               position: "absolute",
-              top: "10px",
+              top: "40px",
               right: "10px",
               background: "rgba(0,255,0,0.8)",
               padding: "5px 10px",
@@ -720,7 +889,7 @@ function App() {
               color: "white",
             }}
           >
-            🗺️ Carte chargée
+            📱 Carte mobile chargée
           </div>
         )}
       </header>
@@ -783,6 +952,28 @@ function App() {
                       )}
                     </>
                   )}
+                  {(() => {
+                    const direction = getDirectionToDestination();
+                    return direction ? (
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          padding: "4px 8px",
+                          background: direction.isOnTarget
+                            ? "rgba(0,255,0,0.2)"
+                            : "rgba(255,165,0,0.2)",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                        }}
+                      >
+                        🧭 {direction.isOnTarget ? "✅" : "↻"}{" "}
+                        {Math.abs(direction.difference)}°
+                        {!direction.isOnTarget && (
+                          <span> {direction.difference > 0 ? "→" : "←"}</span>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               )}
             </div>
