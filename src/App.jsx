@@ -34,181 +34,164 @@ const createFeatureStyle = (iconUrl, scale, color) => {
   });
 };
 
-// Styles pour la position utilisateur (plus visibles)
-const USER_POSITION_STYLES = {
-  gps: new Style({
-    image: new Circle({
-      radius: 12, // Plus gros
-      fill: new Fill({ color: "#34A853" }),
-      stroke: new Stroke({
-        color: "white",
-        width: 3, // Bordure plus épaisse
-      }),
-    }),
-  }),
-  fallback: new Style({
-    image: new Circle({
-      radius: 10,
-      fill: new Fill({ color: "#EA4335" }),
-      stroke: new Stroke({
-        color: "white",
-        width: 3,
-      }),
-    }),
-  }),
-  debug: new Style({
-    image: new Circle({
-      radius: 12,
-      fill: new Fill({ color: "#4285F4" }),
-      stroke: new Stroke({
-        color: "white",
-        width: 3,
-      }),
-    }),
-  }),
-  test: new Style({
-    image: new Circle({
-      radius: 15, // Très visible pour les tests
-      fill: new Fill({ color: "#FF9800" }), // Orange
-      stroke: new Stroke({
-        color: "#000000", // Bordure noire
-        width: 4,
-      }),
-    }),
-  }),
-  forced: new Style({
-    image: new Circle({
-      radius: 15,
-      fill: new Fill({ color: "#9C27B0" }), // Violet
-      stroke: new Stroke({
-        color: "#FFFFFF",
-        width: 4,
-      }),
-    }),
-  }),
+// Configuration centralisée
+const CONFIG = {
+  INITIAL_POSITION: [120.95134859887523, 14.347872973134175],
+  GEOLOCATION: {
+    HIGH_ACCURACY: { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    LOW_ACCURACY: {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 60000,
+    },
+    PRECISION_THRESHOLD: 15,
+  },
+  STYLES: {
+    gps: { radius: 8, color: "#34A853", stroke: "#FFFFFF", width: 2 },
+    network: { radius: 6, color: "#4285F4", stroke: "#FFFFFF", width: 2 },
+    debug: { radius: 10, color: "#FF6B6B", stroke: "#FFFFFF", width: 3 },
+  },
+  ROUTING: {
+    OSRM_URL: "https://router.project-osrm.org/route/v1/walking",
+    ORS_URL: "https://api.openrouteservice.org/v2/directions/foot-walking",
+    WALKING_SPEED: 1.4, // m/s
+  },
 };
 
-const INITIAL_POSITION = [120.95134859887523, 14.347872973134175];
+// Factory pour créer les styles (DRY)
+const createPositionStyle = (config) =>
+  new Style({
+    image: new Circle({
+      radius: config.radius,
+      fill: new Fill({ color: config.color }),
+      stroke: new Stroke({ color: config.stroke, width: config.width }),
+    }),
+  });
 
-// Fonction pour recentrer la carte
-const recenterMap = (map, position, zoom = 16.5) => {
-  if (map && position) {
-    map.getView().animate({
-      center: position,
-      zoom,
-      duration: 500,
-    });
-  }
-};
+// Styles générés automatiquement (DRY)
+const USER_POSITION_STYLES = Object.fromEntries(
+  Object.entries(CONFIG.STYLES).map(([key, config]) => [
+    key,
+    createPositionStyle(config),
+  ])
+);
 
-// Fonction pour calculer la distance entre deux points
-const calculateDistance = (point1, point2) => {
-  const from = turf.point([point1[0], point1[1]]);
-  const to = turf.point([point2[0], point2[1]]);
-  return turf.distance(from, to, { units: "meters" });
-};
-
-// Fonction pour calculer l'itinéraire avec OpenRouteService
-const calculateRoute = async (start, end) => {
-  // Commençons directement avec OSRM qui est plus fiable et gratuit
-  try {
-    console.log("🗺️ Calcul d'itinéraire de", start, "vers", end);
-
-    // OSRM (gratuit, pas de clé API nécessaire)
-    const osrmUrl = `https://router.project-osrm.org/route/v1/walking/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=true`;
-
-    console.log("📡 Appel OSRM:", osrmUrl);
-
-    const osrmResponse = await fetch(osrmUrl);
-
-    if (!osrmResponse.ok) {
-      throw new Error(`Erreur OSRM: ${osrmResponse.status}`);
+// Utilitaires géographiques (DRY)
+const geoUtils = {
+  recenterMap: (map, position, zoom = 16.5) => {
+    if (map && position) {
+      map.getView().animate({ center: position, zoom, duration: 500 });
     }
+  },
 
-    const osrmData = await osrmResponse.json();
-    console.log("📊 Réponse OSRM:", osrmData);
+  calculateDistance: (point1, point2) => {
+    const from = turf.point([point1[0], point1[1]]);
+    const to = turf.point([point2[0], point2[1]]);
+    return turf.distance(from, to, { units: "meters" });
+  },
 
-    if (!osrmData.routes || osrmData.routes.length === 0) {
-      throw new Error("Aucun itinéraire OSRM trouvé");
+  adaptPosition: (position, source) => ({
+    coords: {
+      longitude: position.coords.longitude,
+      latitude: position.coords.latitude,
+    },
+    accuracy: position.coords.accuracy,
+    source,
+    timestamp: position.timestamp || Date.now(),
+  }),
+};
+
+// Services de routing (DRY et KISS)
+const routingService = {
+  // Utilitaire pour les requêtes HTTP (DRY)
+  async fetchRoute(url, options = {}) {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    return response.json();
+  },
 
-    const route = osrmData.routes[0];
+  // Service OSRM
+  async tryOSRM(start, end) {
+    const url = `${CONFIG.ROUTING.OSRM_URL}/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson&steps=true`;
+    const data = await this.fetchRoute(url);
 
+    if (!data.routes?.[0]) throw new Error("Aucun itinéraire OSRM");
+
+    const route = data.routes[0];
     return {
       coordinates: route.geometry.coordinates,
-      distance: route.distance, // en mètres
-      duration: route.duration, // en secondes
+      distance: route.distance,
+      duration: route.duration,
       steps: route.legs[0]?.steps || [],
       provider: "osrm",
     };
-  } catch (osrmError) {
-    console.warn("Erreur avec OSRM, essai avec OpenRouteService:", osrmError);
+  },
 
-    // Fallback vers OpenRouteService seulement si OSRM échoue
-    try {
-      const ORS_API_KEY = import.meta.env.VITE_OPENROUTE_API_KEY;
+  // Service OpenRouteService
+  async tryORS(start, end) {
+    const apiKey = import.meta.env.VITE_OPENROUTE_API_KEY;
+    if (!apiKey || apiKey.includes("your_api_key_here")) {
+      throw new Error("Clé API OpenRouteService manquante");
+    }
 
-      if (!ORS_API_KEY || ORS_API_KEY.includes("your_api_key_here")) {
-        throw new Error("Clé API OpenRouteService non configurée");
-      }
-
-      const url = `https://api.openrouteservice.org/v2/directions/foot-walking`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${ORS_API_KEY}`,
-        },
-        body: JSON.stringify({
-          coordinates: [start, end],
-          format: "geojson",
-          options: {
-            avoid_features: ["highways"],
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Erreur API OpenRouteService: ${response.status} - ${errorText}`
-        );
-      }
-
-      const data = await response.json();
-
-      if (!data.features || data.features.length === 0) {
-        throw new Error("Aucun itinéraire trouvé");
-      }
-
-      const route = data.features[0];
-      const coordinates = route.geometry.coordinates;
-      const properties = route.properties;
-
-      return {
-        coordinates: coordinates,
-        distance: properties.segments[0].distance,
-        duration: properties.segments[0].duration,
-        steps: properties.segments[0].steps || [],
-        provider: "openroute",
-      };
-    } catch (orsError) {
-      console.warn(
-        "Erreur avec OpenRouteService aussi, fallback vers ligne droite:",
-        orsError
-      );
-
-      // Dernier fallback vers calcul simple
-      return {
+    const data = await this.fetchRoute(CONFIG.ROUTING.ORS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
         coordinates: [start, end],
-        distance: calculateDistance(start, end),
-        duration: Math.round(calculateDistance(start, end) / 1.4), // ~1.4 m/s vitesse de marche
-        steps: [],
-        fallback: true,
-      };
+        format: "geojson",
+        options: { avoid_features: ["highways"] },
+      }),
+    });
+
+    if (!data.features?.[0]) throw new Error("Aucun itinéraire ORS");
+
+    const route = data.features[0];
+    const props = route.properties;
+    return {
+      coordinates: route.geometry.coordinates,
+      distance: props.segments[0].distance,
+      duration: props.segments[0].duration,
+      steps: props.segments[0].steps || [],
+      provider: "openroute",
+    };
+  },
+
+  // Fallback simple
+  createFallback(start, end) {
+    const distance = geoUtils.calculateDistance(start, end);
+    return {
+      coordinates: [start, end],
+      distance,
+      duration: Math.round(distance / CONFIG.ROUTING.WALKING_SPEED),
+      steps: [],
+      fallback: true,
+    };
+  },
+};
+
+// Fonction principale simplifiée (KISS)
+const calculateRoute = async (start, end) => {
+  const services = [
+    () => routingService.tryOSRM(start, end),
+    () => routingService.tryORS(start, end),
+    () => routingService.createFallback(start, end),
+  ];
+
+  for (const service of services) {
+    try {
+      return await service();
+    } catch (error) {
+      console.warn("Service de routing échoué:", error.message);
     }
   }
+
+  throw new Error("Tous les services de routing ont échoué");
 };
 
 // Style pour la route
@@ -309,37 +292,7 @@ function App() {
   const [distanceToDestination, setDistanceToDestination] = useState(null);
   const [hasArrived, setHasArrived] = useState(false);
 
-  // État pour les logs de debug visibles
-  const [debugLogs, setDebugLogs] = useState([]);
-
   useGeographic();
-
-  // Fonction pour ajouter des logs visibles (définie en premier)
-  const addDebugLog = useCallback((message, data = null) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = `${timestamp}: ${message}${
-      data ? ` | ${JSON.stringify(data)}` : ""
-    }`;
-    console.log(logEntry);
-    setDebugLogs((prev) => [...prev.slice(-4), logEntry]); // Garde seulement les 5 derniers logs
-  }, []);
-
-  /**
-   * Adapte la position native au format de l'app
-   * Ajoute des métadonnées utiles et filtre les données
-   */
-  const adaptPosition = useCallback(
-    (position, source) => ({
-      coords: {
-        longitude: position.coords.longitude,
-        latitude: position.coords.latitude,
-      },
-      accuracy: position.coords.accuracy, // Accuracy au niveau racine
-      source,
-      timestamp: position.timestamp || Date.now(),
-    }),
-    []
-  );
 
   // Style pour le cercle de précision (optimisé)
   const accuracyStyle = useMemo(
@@ -362,30 +315,17 @@ function App() {
   // Mise à jour de la position sur la carte
   const updateUserPosition = useCallback(
     (position) => {
-      if (!position) {
-        addDebugLog("⚠️ updateUserPosition: position null");
-        return;
-      }
-
-      addDebugLog("🗺️ Mise à jour position carte", {
-        coords: position.coords,
-        accuracy: position.accuracy,
-        source: position.source,
-      });
+      if (!position) return;
 
       setUserPosition(position.coords);
       setPositionAccuracy(position.accuracy);
       setPositionSource(position.source);
 
       // Vérification des sources
-      if (!userPositionSource) {
-        addDebugLog("❌ userPositionSource manquant");
-        return;
-      }
+      if (!userPositionSource) return;
 
       // Mise à jour du marqueur de position
       userPositionSource.clear();
-      addDebugLog("🧹 Source cleared");
 
       const pointFeature = new Feature({
         geometry: new Point(position.coords),
@@ -395,21 +335,12 @@ function App() {
 
       // Vérification du style
       const style = USER_POSITION_STYLES[position.source];
-      if (!style) {
-        addDebugLog("❌ Style manquant pour", { source: position.source });
-        return;
-      }
+      if (!style) return;
 
       // Application du style selon la source
       pointFeature.setStyle(style);
-      addDebugLog("🎨 Style appliqué", { source: position.source });
 
       // Ajout du cercle de précision
-      addDebugLog("🔍 Vérif accuracy", {
-        accuracy: position.accuracy,
-        type: typeof position.accuracy,
-      });
-
       if (position.accuracy && position.accuracy > 0) {
         const accuracyFeature = new Feature({
           geometry: new Point(position.coords),
@@ -419,29 +350,16 @@ function App() {
         clonedStyle.getImage().setRadius(position.accuracy);
         accuracyFeature.setStyle(clonedStyle);
         userPositionSource.addFeature(accuracyFeature);
-        addDebugLog("🎯 Cercle précision ajouté", {
-          radius: position.accuracy,
-        });
-      } else {
-        addDebugLog("⚠️ Pas de cercle précision", {
-          accuracy: position.accuracy,
-        });
       }
 
       userPositionSource.addFeature(pointFeature);
-      addDebugLog("📍 Marqueur ajouté à la carte");
-
-      // Vérification finale
-      const featureCount = userPositionSource.getFeatures().length;
-      addDebugLog("✅ Features sur carte", { count: featureCount });
 
       // Auto-recentrage sur la première position
       if (mapInstanceRef.current) {
-        addDebugLog("🎯 Recentrage auto sur position");
-        recenterMap(mapInstanceRef.current, position.coords);
+        geoUtils.recenterMap(mapInstanceRef.current, position.coords);
       }
     },
-    [userPositionSource, accuracyStyle, addDebugLog]
+    [userPositionSource, accuracyStyle]
   );
 
   // Surveillance de l'orientation
@@ -471,80 +389,50 @@ function App() {
 
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
-    addDebugLog("🔍 Config géoloc", {
-      VITE_DEBUG_GEOLOC: import.meta.env.VITE_DEBUG_GEOLOC,
-      debugMode,
-      hasGeolocation: !!navigator.geolocation,
-    });
-
     if (debugMode) {
-      addDebugLog("🖥️ Mode debug activé");
       updateUserPosition({
-        coords: INITIAL_POSITION,
+        coords: CONFIG.INITIAL_POSITION,
         accuracy: 5,
         source: "debug",
       });
       return () => {};
     }
 
-    addDebugLog("📱 Mode géoloc réelle activé");
-
     let lastWatchId;
 
     const startWatching = (highAccuracy) => {
       if (lastWatchId) {
-        addDebugLog("🔄 Arrêt watch précédent");
         navigator.geolocation.clearWatch(lastWatchId);
       }
 
-      addDebugLog("📍 Démarrage watch", { highAccuracy });
+      const options = highAccuracy
+        ? CONFIG.GEOLOCATION.HIGH_ACCURACY
+        : CONFIG.GEOLOCATION.LOW_ACCURACY;
 
       lastWatchId = navigator.geolocation.watchPosition(
         (position) => {
-          addDebugLog("✅ Position reçue", {
-            lat: position.coords.latitude.toFixed(6),
-            lng: position.coords.longitude.toFixed(6),
-            accuracy: Math.round(position.coords.accuracy),
-          });
-
-          const adapted = adaptPosition(
+          const adapted = geoUtils.adaptPosition(
             position,
             highAccuracy ? "gps" : "network"
           );
           updateUserPosition(adapted);
 
           // Passage en low power si précision suffisante
-          if (highAccuracy && position.coords.accuracy < 15) {
-            addDebugLog("🎯 Passage mode économie");
+          if (
+            highAccuracy &&
+            position.coords.accuracy < CONFIG.GEOLOCATION.PRECISION_THRESHOLD
+          ) {
             isHighAccuracyActiveRef.current = false;
             startWatching(false);
           }
         },
         (error) => {
-          const errorTypes = {
-            1: "PERMISSION_DENIED",
-            2: "POSITION_UNAVAILABLE",
-            3: "TIMEOUT",
-          };
-
-          addDebugLog("❌ Erreur géoloc", {
-            code: error.code,
-            type: errorTypes[error.code],
-            message: error.message,
-          });
-
+          console.error("Erreur géolocalisation:", error);
           if (highAccuracy) {
-            addDebugLog("🔄 Tentative basse précision");
             startWatching(false);
-          } else {
-            addDebugLog("💥 Échec total géolocalisation");
           }
         },
-        {
-          enableHighAccuracy: highAccuracy,
-          maximumAge: highAccuracy ? 0 : 60000,
-          timeout: highAccuracy ? 15000 : 10000, // Timeout plus long
-        }
+        options
       );
 
       isHighAccuracyActiveRef.current = highAccuracy;
@@ -560,51 +448,28 @@ function App() {
 
   // Fonction pour démarrer la navigation
   const startNavigation = useCallback(async () => {
-    if (!userPosition || !destination?.coords) {
-      console.error("❌ Impossible de démarrer la navigation:", {
-        userPosition,
-        destination,
-      });
-      return;
-    }
-
-    console.log("🚀 Démarrage de la navigation:", {
-      userPosition,
-      destination: destination.coords,
-    });
+    if (!userPosition || !destination?.coords) return;
 
     try {
       const routeData = await calculateRoute(userPosition, destination.coords);
-      console.log("✅ Route calculée:", routeData);
-
       setRoute(routeData);
       setIsNavigating(true);
 
       // Afficher la route sur la carte
       routeSource.clear();
-      console.log(
-        "🗺️ Création de la géométrie de route avec",
-        routeData.coordinates.length,
-        "points"
-      );
-
       const routeFeature = new Feature({
         geometry: new LineString(routeData.coordinates),
       });
       routeFeature.setStyle(ROUTE_STYLE);
       routeSource.addFeature(routeFeature);
 
-      console.log("✅ Route ajoutée à la carte");
-
       // Ajuster la vue pour montrer la route complète
       const extent = routeFeature.getGeometry().getExtent();
       mapInstanceRef.current
         .getView()
         .fit(extent, { padding: [50, 50, 50, 50] });
-
-      console.log("✅ Vue ajustée pour montrer la route");
     } catch (error) {
-      console.error("❌ Erreur lors du calcul de l'itinéraire:", error);
+      console.error("Erreur lors du calcul de l'itinéraire:", error);
       alert("Impossible de calculer l'itinéraire");
     }
   }, [userPosition, destination, routeSource]);
@@ -635,7 +500,10 @@ function App() {
         data,
       });
       setShowWelcomeModal(false);
-      recenterMap(mapInstanceRef.current, data.coordinates.coordinates);
+      geoUtils.recenterMap(
+        mapInstanceRef.current,
+        data.coordinates.coordinates
+      );
     } catch (err) {
       console.error("[Destination] Erreur:", err);
       alert(`Bloc ${block}, Lot ${lot} introuvable`);
@@ -643,16 +511,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    addDebugLog("🗺️ Initialisation carte...");
-
     try {
-      // Vérification du conteneur
-      if (!mapRef.current) {
-        addDebugLog("❌ Conteneur carte manquant");
-        return;
-      }
-
-      addDebugLog("✅ Conteneur carte OK");
+      if (!mapRef.current) return;
 
       // Initialisation de la carte
       const map = new Map({
@@ -678,12 +538,11 @@ function App() {
           }),
         ],
         view: new View({
-          center: INITIAL_POSITION,
+          center: CONFIG.INITIAL_POSITION,
           zoom: 16.5,
         }),
       });
 
-      addDebugLog("✅ Carte créée");
       mapInstanceRef.current = map;
 
       // Ajout des blocs
@@ -728,11 +587,8 @@ function App() {
       // Configuration de la géolocalisation
       setupDeviceOrientation();
       setupGeolocation();
-
-      addDebugLog("✅ Carte initialisée avec succès");
     } catch (error) {
-      addDebugLog("❌ Erreur initialisation carte", { error: error.message });
-      console.error("Erreur carte:", error);
+      console.error("Erreur initialisation carte:", error);
     }
 
     return () => {
@@ -744,7 +600,7 @@ function App() {
       }
       window.removeEventListener("deviceorientation", handleOrientation);
     };
-  }, [addDebugLog]);
+  }, []);
 
   // Style de destination optimisé
   const destinationStyle = useMemo(
@@ -756,7 +612,10 @@ function App() {
   useEffect(() => {
     if (!isNavigating || !userPosition || !destination?.coords) return;
 
-    const distance = calculateDistance(userPosition, destination.coords);
+    const distance = geoUtils.calculateDistance(
+      userPosition,
+      destination.coords
+    );
     setDistanceToDestination(distance);
 
     // Détection d'arrivée (moins de 10 mètres)
@@ -789,213 +648,23 @@ function App() {
           <div className="position-info">
             Source: <span data-source={positionSource}>{positionSource}</span> |
             Précision: {positionAccuracy?.toFixed(1)}m
-            {debugMode && (
-              <span style={{ color: "red", fontWeight: "bold" }}>
-                {" "}
-                | DEBUG MODE
-              </span>
-            )}
           </div>
         )}
       </header>
 
-      <div
-        ref={mapRef}
-        className="map"
-        style={{
-          width: "100%",
-          height: "100%",
-          background: "#f0f0f0", // Couleur de fond pour voir si le conteneur existe
-        }}
-      />
+      <div ref={mapRef} className="map" />
 
       <button
         onClick={useCallback(
           () =>
-            userPosition && recenterMap(mapInstanceRef.current, userPosition),
+            userPosition &&
+            geoUtils.recenterMap(mapInstanceRef.current, userPosition),
           [userPosition]
         )}
         className="recenter-button"
       >
         <MdCenterFocusStrong />
       </button>
-
-      {/* Boutons de debug géolocalisation */}
-      {!userPosition && (
-        <div
-          style={{
-            position: "absolute",
-            top: "80px",
-            right: "25px",
-            zIndex: 1000,
-          }}
-        >
-          <button
-            onClick={() => {
-              addDebugLog("🔄 Test géoloc forcé");
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  addDebugLog("✅ Test réussi");
-                  const adapted = adaptPosition(position, "test");
-                  updateUserPosition(adapted);
-                },
-                (error) => {
-                  addDebugLog("❌ Test échoué", {
-                    code: error.code,
-                    msg: error.message,
-                  });
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-              );
-            }}
-            style={{
-              display: "block",
-              marginBottom: "10px",
-              padding: "10px",
-              background: "#ff6b6b",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-            }}
-          >
-            Test GPS
-          </button>
-
-          <button
-            onClick={() => {
-              addDebugLog("🔄 Demande permission");
-              if (navigator.permissions) {
-                navigator.permissions
-                  .query({ name: "geolocation" })
-                  .then((result) => {
-                    addDebugLog("📋 Permission status", {
-                      state: result.state,
-                    });
-                  });
-              } else {
-                addDebugLog("❌ Permissions API non disponible");
-              }
-
-              // Force VRAIMENT une demande avec callback complet
-              addDebugLog("🚀 Force demande géoloc...");
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  addDebugLog("🎉 Permission accordée!", {
-                    lat: position.coords.latitude.toFixed(6),
-                    lng: position.coords.longitude.toFixed(6),
-                  });
-                  const adapted = adaptPosition(position, "forced");
-                  updateUserPosition(adapted);
-                },
-                (error) => {
-                  addDebugLog("❌ Permission refusée", {
-                    code: error.code,
-                    message: error.message,
-                  });
-                },
-                {
-                  enableHighAccuracy: false,
-                  timeout: 30000,
-                  maximumAge: 0,
-                }
-              );
-            }}
-            style={{
-              display: "block",
-              padding: "10px",
-              background: "#4CAF50",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-            }}
-          >
-            Force Permission
-          </button>
-        </div>
-      )}
-
-      {/* Bouton de debug pour position existante */}
-      {userPosition && (
-        <button
-          onClick={() => {
-            addDebugLog("🔍 Debug position actuelle", {
-              userPosition,
-              accuracy: positionAccuracy,
-              source: positionSource,
-            });
-
-            // Vérifier les features sur la carte
-            const features = userPositionSource.getFeatures();
-            addDebugLog("🗺️ Features actuelles", { count: features.length });
-
-            // Force recentrage
-            if (mapInstanceRef.current) {
-              addDebugLog("🎯 Force recentrage");
-              recenterMap(mapInstanceRef.current, userPosition);
-            }
-          }}
-          style={{
-            position: "absolute",
-            top: "80px",
-            left: "25px",
-            padding: "10px",
-            background: "#2196F3",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            zIndex: 1000,
-          }}
-        >
-          Debug Position
-        </button>
-      )}
-
-      {/* Affichage des logs de debug */}
-      {debugLogs.length > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100px",
-            left: "10px",
-            right: "10px",
-            background: "rgba(0,0,0,0.8)",
-            color: "white",
-            padding: "10px",
-            borderRadius: "5px",
-            fontSize: "12px",
-            fontFamily: "monospace",
-            zIndex: 1000,
-            maxHeight: "200px",
-            overflow: "auto",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-            Debug Logs:
-          </div>
-          {debugLogs.map((log, index) => (
-            <div
-              key={index}
-              style={{ marginBottom: "2px", wordBreak: "break-all" }}
-            >
-              {log}
-            </div>
-          ))}
-          <button
-            onClick={() => setDebugLogs([])}
-            style={{
-              marginTop: "5px",
-              padding: "5px 10px",
-              background: "#666",
-              color: "white",
-              border: "none",
-              borderRadius: "3px",
-              fontSize: "10px",
-            }}
-          >
-            Clear Logs
-          </button>
-        </div>
-      )}
 
       {/* Interface de navigation */}
       {destination?.coords && userPosition && !showWelcomeModal && (
