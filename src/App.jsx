@@ -75,31 +75,6 @@ const USER_POSITION_STYLES = Object.fromEntries(
   ])
 );
 
-// Utilitaires géographiques (DRY)
-const geoUtils = {
-  recenterMap: (map, position, zoom = 16.5) => {
-    if (map && position) {
-      map.getView().animate({ center: position, zoom, duration: 500 });
-    }
-  },
-
-  calculateDistance: (point1, point2) => {
-    const from = turf.point([point1[0], point1[1]]);
-    const to = turf.point([point2[0], point2[1]]);
-    return turf.distance(from, to, { units: "meters" });
-  },
-
-  adaptPosition: (position, source) => ({
-    coords: {
-      longitude: position.coords.longitude,
-      latitude: position.coords.latitude,
-    },
-    accuracy: position.coords.accuracy,
-    source,
-    timestamp: position.timestamp || Date.now(),
-  }),
-};
-
 // Services de routing (DRY et KISS)
 const routingService = {
   // Utilitaire pour les requêtes HTTP (DRY)
@@ -163,7 +138,9 @@ const routingService = {
 
   // Fallback simple
   createFallback(start, end) {
-    const distance = geoUtils.calculateDistance(start, end);
+    const from = turf.point([start[0], start[1]]);
+    const to = turf.point([end[0], end[1]]);
+    const distance = turf.distance(from, to, { units: "meters" });
     return {
       coordinates: [start, end],
       distance,
@@ -280,7 +257,7 @@ function App() {
   const destinationSource = useMemo(() => new VectorSource(), []);
   const userPositionSource = useMemo(() => new VectorSource(), []);
   const poiSource = useMemo(() => new VectorSource(), []);
-  const routeSource = useMemo(() => new VectorSource(), []); // Nouvelle source pour la route
+  const routeSource = useMemo(() => new VectorSource(), []);
   const orientationRef = useRef(null);
   const watchIdRef = useRef(null);
   const isHighAccuracyActiveRef = useRef(false);
@@ -314,14 +291,22 @@ function App() {
   // Mise à jour de la position sur la carte
   const updateUserPosition = useCallback(
     (position) => {
-      if (!position) return;
+      if (!position || !position.coords) {
+        console.warn("❌ Position invalide:", position);
+        return;
+      }
+
+      console.log("📍 Mise à jour position utilisateur:", position);
 
       setUserPosition(position.coords);
       setPositionAccuracy(position.accuracy);
       setPositionSource(position.source);
 
       // Vérification des sources
-      if (!userPositionSource) return;
+      if (!userPositionSource) {
+        console.warn("❌ userPositionSource non disponible");
+        return;
+      }
 
       // Mise à jour du marqueur de position
       userPositionSource.clear();
@@ -333,8 +318,12 @@ function App() {
       });
 
       // Vérification du style
-      const style = USER_POSITION_STYLES[position.source];
-      if (!style) return;
+      const style =
+        USER_POSITION_STYLES[position.source] || USER_POSITION_STYLES.gps;
+      if (!style) {
+        console.warn("❌ Style non trouvé pour:", position.source);
+        return;
+      }
 
       // Application du style selon la source
       pointFeature.setStyle(style);
@@ -346,7 +335,7 @@ function App() {
         });
         // Clone et met à jour le style pour la précision
         const clonedStyle = accuracyStyle.clone();
-        clonedStyle.getImage().setRadius(position.accuracy);
+        clonedStyle.getImage().setRadius(Math.min(position.accuracy, 100)); // Limite la taille
         accuracyFeature.setStyle(clonedStyle);
         userPositionSource.addFeature(accuracyFeature);
       }
@@ -354,11 +343,16 @@ function App() {
       userPositionSource.addFeature(pointFeature);
 
       // Auto-recentrage sur la première position
-      if (mapInstanceRef.current) {
-        geoUtils.recenterMap(mapInstanceRef.current, position.coords);
+      if (mapInstanceRef.current && !userPosition) {
+        console.log("🎯 Premier recentrage sur position utilisateur");
+        mapInstanceRef.current.getView().animate({
+          center: position.coords,
+          zoom: 16.5,
+          duration: 500,
+        });
       }
     },
-    [userPositionSource, accuracyStyle]
+    [userPositionSource, accuracyStyle, userPosition]
   );
 
   // Surveillance de l'orientation
@@ -385,6 +379,14 @@ function App() {
 
   // Configuration de la géolocalisation continue
   const setupGeolocation = () => {
+    console.log("🌍 Initialisation de la géolocalisation...");
+
+    if (!navigator.geolocation) {
+      console.error("❌ Géolocalisation non supportée");
+      alert("Votre navigateur ne supporte pas la géolocalisation");
+      return;
+    }
+
     let lastWatchId;
 
     const startWatching = (highAccuracy) => {
@@ -396,12 +398,22 @@ function App() {
         ? CONFIG.GEOLOCATION.HIGH_ACCURACY
         : CONFIG.GEOLOCATION.LOW_ACCURACY;
 
+      console.log(
+        `📍 Démarrage géolocalisation (${
+          highAccuracy ? "haute" : "basse"
+        } précision)`,
+        options
+      );
+
       lastWatchId = navigator.geolocation.watchPosition(
         (position) => {
-          const adapted = geoUtils.adaptPosition(
-            position,
-            highAccuracy ? "gps" : "network"
-          );
+          console.log("📍 Position reçue:", position.coords);
+          const adapted = {
+            coords: [position.coords.longitude, position.coords.latitude],
+            accuracy: position.coords.accuracy,
+            source: highAccuracy ? "gps" : "network",
+            timestamp: position.timestamp || Date.now(),
+          };
           updateUserPosition(adapted);
 
           // Passage en low power si précision suffisante
@@ -409,14 +421,29 @@ function App() {
             highAccuracy &&
             position.coords.accuracy < CONFIG.GEOLOCATION.PRECISION_THRESHOLD
           ) {
+            console.log("✅ Précision suffisante, passage en mode économie");
             isHighAccuracyActiveRef.current = false;
             startWatching(false);
           }
         },
         (error) => {
-          console.error("Erreur géolocalisation:", error);
+          console.error(
+            "❌ Erreur géolocalisation:",
+            error.message,
+            error.code
+          );
           if (highAccuracy) {
+            console.log("🔄 Tentative en basse précision...");
             startWatching(false);
+          } else {
+            // Utiliser la position par défaut si tout échoue
+            console.log("🏠 Utilisation de la position par défaut");
+            updateUserPosition({
+              coords: CONFIG.INITIAL_POSITION,
+              accuracy: 1000,
+              source: "default",
+              timestamp: Date.now(),
+            });
           }
         },
         options
@@ -435,9 +462,27 @@ function App() {
 
   // Fonction pour démarrer la navigation
   const startNavigation = useCallback(async () => {
-    if (!userPosition || !destination?.coords) return;
+    console.log("🧭 Tentative de démarrage navigation:", {
+      userPosition,
+      destination: destination?.coords,
+    });
+
+    if (!userPosition) {
+      console.warn("❌ Position utilisateur manquante");
+      alert(
+        "Position utilisateur non disponible. Veuillez attendre la géolocalisation."
+      );
+      return;
+    }
+
+    if (!destination?.coords) {
+      console.warn("❌ Destination manquante");
+      alert("Destination non définie.");
+      return;
+    }
 
     try {
+      console.log("🗺️ Calcul de l'itinéraire...");
       const routeData = await calculateRoute(userPosition, destination.coords);
       setRoute(routeData);
       setIsNavigating(true);
@@ -455,9 +500,11 @@ function App() {
       mapInstanceRef.current
         .getView()
         .fit(extent, { padding: [50, 50, 50, 50] });
+
+      console.log("✅ Navigation démarrée avec succès");
     } catch (error) {
-      console.error("Erreur lors du calcul de l'itinéraire:", error);
-      alert("Impossible de calculer l'itinéraire");
+      console.error("❌ Erreur lors du calcul de l'itinéraire:", error);
+      alert("Impossible de calculer l'itinéraire: " + error.message);
     }
   }, [userPosition, destination, routeSource]);
 
@@ -487,100 +534,119 @@ function App() {
         data,
       });
       setShowWelcomeModal(false);
-      geoUtils.recenterMap(
-        mapInstanceRef.current,
-        data.coordinates.coordinates
-      );
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.getView().animate({
+          center: data.coordinates.coordinates,
+          zoom: 16.5,
+          duration: 500,
+        });
+      }
     } catch (err) {
       console.error("[Destination] Erreur:", err);
       alert(`Bloc ${block}, Lot ${lot} introuvable`);
     }
   }, []);
 
+  // Initialisation immédiate de la carte (en arrière-plan)
   useEffect(() => {
-    try {
-      if (!mapRef.current) return;
+    // Attendre que le DOM soit prêt
+    const initializeMap = () => {
+      try {
+        if (!mapRef.current || mapInstanceRef.current) return;
 
-      // Initialisation de la carte
-      const map = new Map({
-        target: mapRef.current,
-        layers: [
-          new TileLayer({
-            source: new OSM(),
-            className: "osm-layer",
-          }),
-          new VectorLayer({ source: vectorSource }),
-          new VectorLayer({ source: poiSource }),
-          new VectorLayer({
-            source: userPositionSource,
-            zIndex: 100,
-          }),
-          new VectorLayer({
-            source: destinationSource,
-            zIndex: 99,
-          }),
-          new VectorLayer({
-            source: routeSource,
-            zIndex: 98,
-          }),
-        ],
-        view: new View({
-          center: CONFIG.INITIAL_POSITION,
-          zoom: 16.5,
-        }),
-      });
-
-      mapInstanceRef.current = map;
-
-      // Ajout des blocs
-      blocks.forEach((block) => {
-        const polygon = new Feature({
-          geometry: new Polygon([block.coords]),
-          name: block.name,
-        });
-        polygon.setStyle(
-          new Style({
-            fill: new Fill({ color: block.color || "#E0DFDF" }),
-            stroke: new Stroke({ color: "#999", width: 1 }),
-            text: new Text({
-              text: block.name,
-              font: "600 14px Superclarendon, 'Bookman Old Style', serif",
-              fill: new Fill({ color: "#444" }),
-              stroke: new Stroke({ color: "#fff", width: 2 }),
+        // Création de la carte immédiatement
+        const map = new Map({
+          target: mapRef.current,
+          layers: [
+            new TileLayer({
+              source: new OSM(),
+              className: "osm-layer",
             }),
-          })
-        );
-        vectorSource.addFeature(polygon);
-      });
-
-      // Ajout des POIs
-      publicPois.forEach((poi) => {
-        const point = new Feature({
-          geometry: new Point(poi.coords),
-          name: poi.name,
-        });
-        point.setStyle(
-          new Style({
-            image: new Icon({
-              src: poi.icon,
-              scale: 0.8,
-              anchor: [0.5, 1],
+            new VectorLayer({ source: vectorSource }),
+            new VectorLayer({ source: poiSource }),
+            new VectorLayer({
+              source: userPositionSource,
+              zIndex: 100,
             }),
-          })
-        );
-        poiSource.addFeature(point);
-      });
+            new VectorLayer({
+              source: destinationSource,
+              zIndex: 99,
+            }),
+            new VectorLayer({
+              source: routeSource,
+              zIndex: 98,
+            }),
+          ],
+          view: new View({
+            center: CONFIG.INITIAL_POSITION,
+            zoom: 16.5,
+          }),
+        });
 
-      // Configuration de la géolocalisation
-      setupDeviceOrientation();
-      setupGeolocation();
-    } catch (error) {
-      console.error("Erreur initialisation carte:", error);
+        mapInstanceRef.current = map;
+
+        // Ajout immédiat des blocs
+        blocks.forEach((block) => {
+          const polygon = new Feature({
+            geometry: new Polygon([block.coords]),
+            name: block.name,
+          });
+          polygon.setStyle(
+            new Style({
+              fill: new Fill({ color: block.color || "#E0DFDF" }),
+              stroke: new Stroke({ color: "#999", width: 1 }),
+              text: new Text({
+                text: block.name,
+                font: "600 14px Superclarendon, 'Bookman Old Style', serif",
+                fill: new Fill({ color: "#444" }),
+                stroke: new Stroke({ color: "#fff", width: 2 }),
+              }),
+            })
+          );
+          vectorSource.addFeature(polygon);
+        });
+
+        // Ajout immédiat des POIs
+        publicPois.forEach((poi) => {
+          const point = new Feature({
+            geometry: new Point(poi.coords),
+            name: poi.name,
+          });
+          point.setStyle(
+            new Style({
+              image: new Icon({
+                src: poi.icon,
+                scale: 0.8,
+                anchor: [0.5, 1],
+              }),
+            })
+          );
+          poiSource.addFeature(point);
+        });
+
+        // Démarrage immédiat de la géolocalisation
+        setupDeviceOrientation();
+        setupGeolocation();
+
+        console.log("🗺️ Carte initialisée en arrière-plan");
+      } catch (error) {
+        console.error("❌ Erreur initialisation carte:", error);
+      }
+    };
+
+    // Initialisation immédiate ou après un court délai
+    if (mapRef.current) {
+      initializeMap();
+    } else {
+      // Fallback si le ref n'est pas encore prêt
+      const timer = setTimeout(initializeMap, 100);
+      return () => clearTimeout(timer);
     }
 
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.setTarget(undefined);
+        mapInstanceRef.current = null;
       }
       if (watchIdRef.current) {
         navigator.geolocation.clearWatch(watchIdRef.current);
@@ -599,10 +665,9 @@ function App() {
   useEffect(() => {
     if (!isNavigating || !userPosition || !destination?.coords) return;
 
-    const distance = geoUtils.calculateDistance(
-      userPosition,
-      destination.coords
-    );
+    const from = turf.point([userPosition[0], userPosition[1]]);
+    const to = turf.point([destination.coords[0], destination.coords[1]]);
+    const distance = turf.distance(from, to, { units: "meters" });
     setDistanceToDestination(distance);
 
     // Détection d'arrivée (moins de 10 mètres)
@@ -630,32 +695,57 @@ function App() {
 
   return (
     <div style={{ position: "relative", height: "100vh" }}>
-      <header className="header">
+      {/* Carte en arrière-plan - se charge immédiatement */}
+      <div ref={mapRef} className="map" style={{ zIndex: 1 }} />
+
+      {/* Header par-dessus la carte */}
+      <header className="header" style={{ zIndex: 10 }}>
         {positionSource && (
           <div className="position-info">
             Source: <span data-source={positionSource}>{positionSource}</span> |
             Précision: {positionAccuracy?.toFixed(1)}m
           </div>
         )}
+        {/* Debug: Confirmation que la carte se charge */}
+        {mapInstanceRef.current && showWelcomeModal && (
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              background: "rgba(0,255,0,0.8)",
+              padding: "5px 10px",
+              borderRadius: "5px",
+              fontSize: "12px",
+              color: "white",
+            }}
+          >
+            🗺️ Carte chargée
+          </div>
+        )}
       </header>
 
-      <div ref={mapRef} className="map" />
-
+      {/* Bouton de recentrage */}
       <button
         onClick={useCallback(
           () =>
             userPosition &&
-            geoUtils.recenterMap(mapInstanceRef.current, userPosition),
+            mapInstanceRef.current?.getView().animate({
+              center: userPosition,
+              zoom: 16.5,
+              duration: 500,
+            }),
           [userPosition]
         )}
         className="recenter-button"
+        style={{ zIndex: 10 }}
       >
         <MdCenterFocusStrong />
       </button>
 
       {/* Interface de navigation */}
       {destination?.coords && userPosition && !showWelcomeModal && (
-        <div className="navigation-controls">
+        <div className="navigation-controls" style={{ zIndex: 10 }}>
           {!isNavigating ? (
             <button
               onClick={startNavigation}
@@ -700,11 +790,14 @@ function App() {
         </div>
       )}
 
+      {/* Modal par-dessus tout - z-index élevé */}
       <WelcomeModal
         isOpen={showWelcomeModal}
         onDestinationSet={handleDestinationSet}
       />
-      <footer className="footer">
+
+      {/* Footer */}
+      <footer className="footer" style={{ zIndex: 10 }}>
         © {new Date().getFullYear()} Garden Grove Village
       </footer>
     </div>
