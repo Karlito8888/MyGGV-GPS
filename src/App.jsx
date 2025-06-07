@@ -16,11 +16,13 @@ import { useGeographic } from "ol/proj";
 import { Feature } from "ol";
 import { Point, Polygon, LineString } from "ol/geom";
 import { Fill, Stroke, Style, Icon, Text, Circle } from "ol/style";
+import { toRadians } from "ol/math";
 import { supabase } from "./lib/supabase";
 import { MdCenterFocusStrong, MdNavigation, MdStop } from "react-icons/md";
 import { publicPois } from "./data/public-pois";
 import { blocks } from "./data/blocks";
 import * as turf from "@turf/turf";
+import GyroNorm from "gyronorm";
 
 // Style des marqueurs
 const createFeatureStyle = (iconUrl, scale, color) => {
@@ -268,9 +270,11 @@ function App() {
   const [distanceToDestination, setDistanceToDestination] = useState(null);
   const [hasArrived, setHasArrived] = useState(false);
 
-  // États pour l'orientation
+  // États pour l'orientation et rotation de la carte
   const [deviceOrientation, setDeviceOrientation] = useState(null);
   const [orientationPermission, setOrientationPermission] = useState(null);
+  const [isCompassMode, setIsCompassMode] = useState(false);
+  const gyroNormRef = useRef(null);
 
   useGeographic();
 
@@ -359,99 +363,138 @@ function App() {
     [userPositionSource, accuracyStyle, userPosition]
   );
 
-  // Surveillance de l'orientation pour smartphones
+  // Surveillance de l'orientation avec rotation de carte (mode GPS)
   const setupDeviceOrientation = () => {
-    console.log("📱 Initialisation de l'orientation mobile...");
+    console.log("🧭 Initialisation du mode GPS avec rotation de carte...");
 
+    // Initialisation de GyroNorm pour une meilleure gestion de l'orientation
+    const gn = new GyroNorm();
+    gyroNormRef.current = gn;
+
+    gn.init()
+      .then(() => {
+        console.log("✅ GyroNorm initialisé avec succès");
+        setOrientationPermission("granted");
+        startCompassMode();
+      })
+      .catch((error) => {
+        console.error("❌ Erreur initialisation GyroNorm:", error);
+        setOrientationPermission("denied");
+
+        // Fallback vers l'API standard
+        console.log("🔄 Tentative avec DeviceOrientationEvent standard...");
+        fallbackToStandardOrientation();
+      });
+  };
+
+  const startCompassMode = () => {
+    console.log("🧭 Démarrage du mode boussole GPS...");
+    setIsCompassMode(true);
+
+    if (gyroNormRef.current) {
+      gyroNormRef.current.start((event) => {
+        const alpha = event.do.alpha; // Direction de la boussole
+        const beta = event.do.beta; // Inclinaison avant/arrière
+        const gamma = event.do.gamma; // Inclinaison gauche/droite
+
+        // Mise à jour de l'orientation
+        orientationRef.current = alpha;
+        setDeviceOrientation({
+          alpha,
+          beta,
+          gamma,
+          timestamp: Date.now(),
+        });
+
+        // Rotation de la carte selon l'orientation du smartphone
+        if (mapInstanceRef.current && isCompassMode) {
+          const view = mapInstanceRef.current.getView();
+          const rotation = toRadians(-alpha); // Négatif pour rotation inverse
+          view.setRotation(rotation);
+        }
+
+        // Log périodique pour debug
+        if (Date.now() % 3000 < 100) {
+          console.log("🧭 GPS Mode - Orientation:", {
+            direction: Math.round(alpha),
+            rotation: Math.round(-alpha),
+          });
+        }
+      });
+    }
+  };
+
+  const fallbackToStandardOrientation = () => {
     if (!window.DeviceOrientationEvent) {
-      console.error("❌ DeviceOrientationEvent non supporté sur ce smartphone");
+      console.error("❌ Orientation non supportée sur ce smartphone");
       setOrientationPermission("not-supported");
-      alert(
-        "Votre smartphone ne supporte pas l'orientation. Veuillez utiliser un appareil compatible."
-      );
       return;
     }
 
-    // Vérification si on est sur iOS (permission requise)
+    // Vérification permissions iOS
     if (typeof DeviceOrientationEvent.requestPermission === "function") {
-      console.log("🍎 iPhone détecté - demande de permission requise");
-
       DeviceOrientationEvent.requestPermission()
         .then((permissionState) => {
-          console.log("🔐 Permission orientation iPhone:", permissionState);
-          setOrientationPermission(permissionState);
-
           if (permissionState === "granted") {
-            startOrientationListening();
+            setOrientationPermission("granted");
+            startStandardOrientationListening();
           } else {
-            console.warn("❌ Permission orientation refusée sur iPhone");
-            alert(
-              "L'orientation est requise pour la navigation. Veuillez autoriser l'accès."
-            );
+            setOrientationPermission("denied");
           }
         })
-        .catch((error) => {
-          console.error(
-            "❌ Erreur demande permission orientation iPhone:",
-            error
-          );
-          setOrientationPermission("denied");
-        });
+        .catch(() => setOrientationPermission("denied"));
     } else {
-      // Android
-      console.log("🤖 Android détecté - activation directe de l'orientation");
       setOrientationPermission("granted");
-      startOrientationListening();
+      startStandardOrientationListening();
     }
   };
 
-  const startOrientationListening = () => {
-    console.log("📱 Démarrage écoute orientation mobile...");
-    window.addEventListener("deviceorientation", handleOrientation, true);
+  const startStandardOrientationListening = () => {
+    console.log("📱 Mode orientation standard (sans GyroNorm)...");
 
-    // Test pour vérifier que les événements arrivent sur mobile
-    setTimeout(() => {
-      if (orientationRef.current === null) {
-        console.warn(
-          "⚠️ Aucun événement d'orientation reçu après 3s sur mobile"
-        );
-        alert(
-          "Problème d'orientation détecté. Essayez de bouger votre smartphone."
-        );
-      } else {
-        console.log(
-          "✅ Orientation mobile fonctionnelle:",
-          orientationRef.current
-        );
-      }
-    }, 3000);
-  };
-
-  const handleOrientation = useCallback((event) => {
-    // Gestion de l'orientation pour smartphones uniquement
-    // event.alpha: rotation autour de l'axe Z (0-360°) - Boussole
-    // event.beta: rotation autour de l'axe X (-180 à 180°) - Inclinaison avant/arrière
-    // event.gamma: rotation autour de l'axe Y (-90 à 90°) - Inclinaison gauche/droite
-
-    if (event.alpha !== null) {
-      orientationRef.current = event.alpha;
-      setDeviceOrientation({
-        alpha: event.alpha,
-        beta: event.beta,
-        gamma: event.gamma,
-        timestamp: Date.now(),
-      });
-
-      // Log périodique pour debug mobile (toutes les 5 secondes)
-      if (Date.now() % 5000 < 100) {
-        console.log("📱 Orientation smartphone:", {
-          boussole: Math.round(event.alpha),
-          inclinaison: Math.round(event.beta),
-          rotation: Math.round(event.gamma),
+    const handleStandardOrientation = (event) => {
+      if (event.alpha !== null) {
+        const alpha = event.alpha;
+        orientationRef.current = alpha;
+        setDeviceOrientation({
+          alpha,
+          beta: event.beta,
+          gamma: event.gamma,
+          timestamp: Date.now(),
         });
+
+        // Rotation de la carte en mode standard
+        if (mapInstanceRef.current && isCompassMode) {
+          const view = mapInstanceRef.current.getView();
+          const rotation = toRadians(-alpha);
+          view.setRotation(rotation);
+        }
+      }
+    };
+
+    window.addEventListener(
+      "deviceorientation",
+      handleStandardOrientation,
+      true
+    );
+  };
+
+  // Fonction pour activer/désactiver le mode boussole
+  const toggleCompassMode = useCallback(() => {
+    setIsCompassMode(!isCompassMode);
+
+    if (!isCompassMode) {
+      console.log("🧭 Activation du mode GPS avec rotation");
+      if (orientationPermission !== "granted") {
+        setupDeviceOrientation();
+      }
+    } else {
+      console.log("🗺️ Désactivation du mode GPS - carte fixe");
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.getView().setRotation(0); // Remet la carte droite
       }
     }
-  }, []);
+  }, [isCompassMode, orientationPermission]);
 
   // Configuration de la géolocalisation pour smartphones
   const setupGeolocation = () => {
@@ -736,8 +779,12 @@ function App() {
       if (watchIdRef.current) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
-      // Nettoyage des événements d'orientation
-      window.removeEventListener("deviceorientation", handleOrientation, true);
+      // Nettoyage de GyroNorm et des événements d'orientation
+      if (gyroNormRef.current) {
+        gyroNormRef.current.stop();
+        console.log("🧹 Arrêt de GyroNorm");
+      }
+      window.removeEventListener("deviceorientation", () => {}, true);
       console.log("🧹 Nettoyage des événements d'orientation");
     };
   }, []);
@@ -910,6 +957,34 @@ function App() {
         style={{ zIndex: 10 }}
       >
         <MdCenterFocusStrong />
+      </button>
+
+      {/* Bouton mode boussole GPS */}
+      <button
+        onClick={toggleCompassMode}
+        style={{
+          position: "absolute",
+          bottom: "85px",
+          left: "90px",
+          background: isCompassMode
+            ? "rgba(0,255,0,0.9)"
+            : "rgba(255,165,0,0.9)",
+          color: "white",
+          border: "none",
+          borderRadius: "50%",
+          width: "56px",
+          height: "56px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "24px",
+          cursor: "pointer",
+          zIndex: 10,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}
+        title={isCompassMode ? "Désactiver mode GPS" : "Activer mode GPS"}
+      >
+        🧭
       </button>
 
       {/* Interface de navigation */}

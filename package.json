@@ -14,6 +14,7 @@
     "@supabase/supabase-js": "^2.49.10",
     "@tailwindcss/vite": "^4.1.8",
     "@turf/turf": "^7.2.0",
+    "gyronorm": "^2.0.6",
     "ol": "^10.5.0",
     "ol-ext": "^4.0.31",
     "ol-mapbox-style": "^13.0.1",
