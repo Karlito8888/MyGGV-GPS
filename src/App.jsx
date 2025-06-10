@@ -939,6 +939,26 @@ function App() {
             📱 Carte mobile chargée
           </div>
         )}
+
+        {/* Debug: État des conditions pour le bouton Start */}
+        {!showWelcomeModal && (
+          <div
+            style={{
+              position: "absolute",
+              top: "70px",
+              right: "10px",
+              background: "rgba(0,0,255,0.8)",
+              padding: "5px 10px",
+              borderRadius: "5px",
+              fontSize: "10px",
+              color: "white",
+            }}
+          >
+            🔍 Dest: {destination?.coords ? "✅" : "❌"} | Pos:{" "}
+            {userPosition ? "✅" : "❌"} | Modal:{" "}
+            {showWelcomeModal ? "❌" : "✅"}
+          </div>
+        )}
       </header>
 
       {/* Bouton de recentrage */}
